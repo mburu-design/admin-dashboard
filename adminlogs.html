@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Visualization</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="datetime-local"],
+        select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px 0 0;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .warning-btn {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .warning-btn:hover {
+            background-color: #e0a800;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .analytics-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #e9ecef;
+        }
+        .stat-card {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            display: inline-block;
+            min-width: 150px;
+            margin-right: 15px;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007BFF;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .range-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .mode-selector {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+        .mode-selector label {
+            display: inline;
+            margin-right: 15px;
+            font-weight: normal;
+        }
+        .stream-output {
+            background-color: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Log Visualization</h1>
+    <form id="logForm">
+        <label for="startDateTime">Start Date and Time:</label>
+        <input type="datetime-local" id="startDateTime" name="startDateTime" required>
+
+        <label for="endDateTime">End Date and Time:</label>
+        <input type="datetime-local" id="endDateTime" name="endDateTime" required>
+
+        <label for="logType">Log Type:</label>
+        <input type="text" id="logType" name="logType" required>
+
+        <label for="token">Token:</label>
+        <input type="text" id="token" name="token" required>
+
+        <div class="mode-selector">
+            <label>Processing Mode:</label>
+            <label><input type="radio" name="mode" value="standard" checked> Standard (recommended for &lt; 30 days)</label>
+            <label><input type="radio" name="mode" value="stream"> Streaming (for large date ranges)</label>
+        </div>
+
+        <button type="submit" id="submitBtn">Fetch Logs</button>
+        <button type="button" id="cancelBtn" style="display: none;" onclick="cancelRequest()">Cancel</button>
+    </form>
+
+    <div id="messageArea"></div>
+    <div id="streamOutput" class="stream-output"></div>
+
+    <!-- Analytics Section -->
+    <div class="analytics-section" id="analyticsSection" style="display: none;">
+        <h2>Analytics Summary</h2>
+        <div class="stat-card">
+            <div class="stat-number" id="uniqueUserCount">0</div>
+            <div class="stat-label">Unique Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="totalLogs">0</div>
+            <div class="stat-label">Total Logs</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="uniqueBusinessCount">0</div>
+            <div class="stat-label">Unique Businesses</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="dateRange">-</div>
+            <div class="stat-label">Date Range</div>
+        </div>
+
+        <h3>Business Information (with Last Seen)</h3>
+        <button onclick="printBusinessInfo()" style="margin-bottom: 15px;">Print Business Info</button>
+        <button onclick="exportBusinessCSV()" style="margin-bottom: 15px;">Export to CSV</button>
+        <table id="businessTable">
+            <thead>
+                <tr>
+                    <th>Business Name</th>
+                    <th>Business Email</th>
+                    <th>Last Seen</th>
+                </tr>
+            </thead>
+            <tbody id="businessTableBody">
+                <!-- Business data will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Original Log Table -->
+    <div id="logSection">
+        <h2>Detailed Logs</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Business Name</th>
+                    <th>Business Email</th>
+                    <th>Parent ID</th>
+                    <th>Timestamp</th>
+                    <th>Response Time</th>
+                    <th>User Agent</th>
+                    <th>Path</th>
+                    <th>Method</th>
+                </tr>
+            </thead>
+            <tbody id="logTableBody">
+                <!-- Log data will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let currentRequest = null;
+
+        function showMessage(message, type = 'info') {
+            const messageArea = document.getElementById('messageArea');
+            messageArea.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function clearMessages() {
+            document.getElementById('messageArea').innerHTML = '';
+        }
+
+        function calculateDaysDifference(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end - start);
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        document.getElementById('logForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            clearMessages();
+
+            const startDateTime = document.getElementById('startDateTime').value;
+            const endDateTime = document.getElementById('endDateTime').value;
+            const logType = document.getElementById('logType').value;
+            const token = document.getElementById('token').value;
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+
+            const formatDateTime = (dateTime) => {
+                const date = new Date(dateTime);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                return `${year}${month}${day}${hours}${minutes}${seconds}`;
+            };
+
+            const formattedStartDate = formatDateTime(startDateTime);
+            const formattedEndDate = formatDateTime(endDateTime);
+            
+            // Calculate days and show warning if needed
+            const daysDiff = calculateDaysDifference(startDateTime, endDateTime);
+            if (daysDiff > 30 && mode === 'standard') {
+                showMessage(`Warning: You selected ${daysDiff} days. This may take a long time or timeout. Consider using streaming mode for large ranges.`, 'range-warning');
+            }
+
+            // Prepare form data
+            let formData = `startDate=${formattedStartDate}&endDate=${formattedEndDate}&logType=${logType}&token=${token}`;
+            if (mode === 'stream') {
+                formData += '&stream=true';
+            }
+
+            // UI updates
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+            
+            if (mode === 'stream') {
+                document.getElementById('streamOutput').style.display = 'block';
+                document.getElementById('streamOutput').textContent = 'Initializing stream...\n';
+                document.getElementById('logSection').style.display = 'none';
+                handleStreamingRequest(formData);
+            } else {
+                showMessage('Fetching data...', 'loading');
+                handleStandardRequest(formData);
+            }
+        });
+
+        function handleStandardRequest(formData) {
+            const xhr = new XMLHttpRequest();
+            currentRequest = xhr;
+            
+            xhr.open('POST', 'fetch_logs.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    resetUI();
+                    if (xhr.status === 200) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            
+                            if (response.error) {
+                                showMessage(`Error: ${response.error}`, 'error');
+                                if (response.suggestion) {
+                                    showMessage(`Suggestion: ${response.suggestion}<br>Total days: ${response.totalDays}<br>Estimated time: ${response.estimatedTime}`, 'info');
+                                }
+                                return;
+                            }
+                            
+                            // Update analytics
+                            document.getElementById('uniqueUserCount').textContent = response.uniqueUserCount || 0;
+                            document.getElementById('totalLogs').textContent = response.totalLogs || 0;
+                            document.getElementById('uniqueBusinessCount').textContent = response.businessAnalytics ? response.businessAnalytics.length : 0;
+                            document.getElementById('dateRange').textContent = response.dateRange || '-';
+                            
+                            // Update tables
+                            document.getElementById('logTableBody').innerHTML = response.logRows || '';
+                            document.getElementById('businessTableBody').innerHTML = response.businessRows || '';
+                            
+                            // Store business analytics for export
+                            window.businessAnalytics = response.businessAnalytics || [];
+                            
+                            document.getElementById('analyticsSection').style.display = 'block';
+                            document.getElementById('logSection').style.display = 'block';
+                            
+                            showMessage('Data fetched successfully!', 'info');
+                        } catch (e) {
+                            showMessage('Error parsing response. Please try again.', 'error');
+                        }
+                    } else {
+                        showMessage('Request failed. Please check your connection and try again.', 'error');
+                    }
+                }
+            };
+            xhr.send(formData);
+        }
+
+        function handleStreamingRequest(formData) {
+            const xhr = new XMLHttpRequest();
+            currentRequest = xhr;
+            
+            xhr.open('POST', 'fetch_logs.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            
+            let buffer = '';
+            xhr.onprogress = function(e) {
+                const response = xhr.responseText;
+                const newData = response.substring(buffer.length);
+                buffer = response;
+                
+                document.getElementById('streamOutput').textContent = buffer;
+                document.getElementById('streamOutput').scrollTop = document.getElementById('streamOutput').scrollHeight;
+            };
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    resetUI();
+                    if (xhr.status === 200) {
+                        showMessage('Streaming completed! Check the output above for results.', 'info');
+                    } else {
+                        showMessage('Streaming request failed.', 'error');
+                    }
+                }
+            };
+            
+            xhr.send(formData);
+        }
+
+        function cancelRequest() {
+            if (currentRequest) {
+                currentRequest.abort();
+                resetUI();
+                showMessage('Request cancelled.', 'info');
+            }
+        }
+
+        function resetUI() {
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('cancelBtn').style.display = 'none';
+            currentRequest = null;
+        }
+
+        function printBusinessInfo() {
+            const content = document.querySelector('.analytics-section').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Print Business Info</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+                            th { background-color: #f4f4f4; color: #333; }
+                            tr:nth-child(even) { background-color: #f9f9f9; }
+                            .stat-card { display: inline-block; margin: 10px; padding: 10px; border: 1px solid #ccc; }
+                        </style>
+                    </head>
+                    <body>
+                        ${content}
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                                window.onafterprint = function() { window.close(); };
+                            };
+                        <\/script>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+        function exportBusinessCSV() {
+            if (!window.businessAnalytics || window.businessAnalytics.length === 0) {
+                showMessage('No business data to export.', 'error');
+                return;
+            }
+
+            let csv = 'Business Name,Business Email,Last Seen\n';
+            window.businessAnalytics.forEach(business => {
+                const name = (business.name || '').replace(/"/g, '""');
+                const email = (business.email || '').replace(/"/g, '""');
+                const lastSeen = (business.lastSeenFormatted || 'N/A').replace(/"/g, '""');
+                csv += `"${name}","${email}","${lastSeen}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `business_analytics_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

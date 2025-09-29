@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Logs Visualization</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="datetime-local"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .analytics-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #e9ecef;
+        }
+        .stat-card {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .login-header {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-header">
+        <h1>Login Logs Visualization</h1>
+        <p>Monitor and analyze user login activities</p>
+    </div>
+    
+    <form id="loginLogForm">
+        <label for="startDateTime">Start Date and Time:</label>
+        <input type="datetime-local" id="startDateTime" name="startDateTime" required>
+
+        <label for="endDateTime">End Date and Time:</label>
+        <input type="datetime-local" id="endDateTime" name="endDateTime" required>
+
+        <label for="token">Admin Token:</label>
+        <input type="text" id="token" name="token" required>
+
+        <button type="submit">Fetch Login Logs</button>
+    </form>
+
+    <!-- Analytics Section -->
+    <div class="analytics-section" id="analyticsSection" style="display: none;">
+        <h2>Login Analytics Summary</h2>
+        <div class="stat-card">
+            <div class="stat-number" id="uniqueUserCount">0</div>
+            <div class="stat-label">Unique Users (with Email)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="successfulLogins">0</div>
+            <div class="stat-label">Successful Logins</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="failedLogins">0</div>
+            <div class="stat-label">Failed Logins</div>
+        </div>
+        
+        <h3>Unique User Emails</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody id="emailTableBody">
+                <!-- Email data will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Original Log Table -->
+    <h2>Detailed Login Logs</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Message</th>
+                <th>Timestamp</th>
+                <th>IP Address</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody id="logTableBody">
+            <!-- Log data will be inserted here -->
+        </tbody>
+    </table>
+
+    <script>
+        document.getElementById('loginLogForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const startDateTime = document.getElementById('startDateTime').value;
+            const endDateTime = document.getElementById('endDateTime').value;
+            const token = document.getElementById('token').value;
+
+            const formatDateTime = (dateTime) => {
+                const date = new Date(dateTime);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                const milliseconds = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+                return `${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}`;
+            };
+
+            const formattedStartDate = formatDateTime(startDateTime);
+            const formattedEndDate = formatDateTime(endDateTime);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'fetch_login_logs.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    document.getElementById('logTableBody').innerHTML = response.logRows;
+                    document.getElementById('uniqueUserCount').textContent = response.uniqueUserCount;
+                    document.getElementById('successfulLogins').textContent = response.successfulLogins;
+                    document.getElementById('failedLogins').textContent = response.failedLogins;
+                    document.getElementById('emailTableBody').innerHTML = response.emailRows;
+                    document.getElementById('analyticsSection').style.display = 'block';
+                }
+            };
+            xhr.send(`startDate=${formattedStartDate}&endDate=${formattedEndDate}&token=${token}`);
+        });
+    </script>
+</body>
+</html>
