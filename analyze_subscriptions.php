@@ -1,7 +1,7 @@
 <?php
 // Enable error reporting for debugging
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Don't display errors in output
+ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
 // Set headers first
@@ -39,19 +39,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $input = json_decode($rawInput, true);
         
         if (!$input) {
-            echo json_encode(['success' => false, 'error' => 'Invalid JSON input. Raw input: ' . substr($rawInput, 0, 200)]);
+            echo json_encode(['success' => false, 'error' => 'Invalid JSON input']);
             exit;
         }
         
-        // Handle test action for debugging
+        // Handle test action
         if (isset($input['action']) && $input['action'] === 'test') {
-            echo json_encode(['success' => true, 'message' => 'PHP script is working correctly', 'received_data' => $input]);
+            echo json_encode(['success' => true, 'message' => 'PHP script is working correctly']);
             exit;
         }
     
         // Handle login action
         if (isset($input['action']) && $input['action'] === 'login') {
-            // Perform admin login with correct endpoint and headers
             $loginUrl = "https://core.myaccuratebook.com/admin/login";
             $authToken = "zWWq5BWO+anUMgWtimvvCguXwU=wAMnzI6grv9WkCFsIdkBydGV4SDZQQHNz";
             
@@ -86,7 +85,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             
             if ($httpCode !== 200) {
-                echo json_encode(['success' => false, 'error' => 'Login failed with status code: ' . $httpCode . ' - Response: ' . $response]);
+                echo json_encode(['success' => false, 'error' => 'Login failed with status code: ' . $httpCode]);
                 exit;
             }
             
@@ -95,11 +94,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($loginResult && isset($loginResult['token'])) {
                 echo json_encode(['success' => true, 'token' => $loginResult['token']]);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Invalid login response: ' . $response]);
+                echo json_encode(['success' => false, 'error' => 'Invalid login response']);
             }
             exit;
         }
         
+        // Get parameters
         $token = $input['token'] ?? '';
         $filterType = $input['filterType'] ?? '';
         $startDate = $input['startDate'] ?? '';
@@ -160,6 +160,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $today = new DateTime();
         $filterStartDate = null;
         $filterEndDate = null;
+        $isFirstPaymentFilter = strpos($filterType, 'first_payment') === 0;
         
         switch ($filterType) {
             case 'expiring_today':
@@ -198,6 +199,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $filterEndDate = clone $today;
                 break;
                 
+            case 'first_payment_today':
+                $filterStartDate = clone $today;
+                $filterStartDate->setTime(0, 0, 0);
+                $filterEndDate = clone $today;
+                $filterEndDate->setTime(23, 59, 59);
+                break;
+                
+            case 'first_payment_this_week':
+                $filterStartDate = (clone $today)->modify('monday this week');
+                $filterEndDate = (clone $today)->modify('sunday this week')->setTime(23, 59, 59);
+                break;
+                
+            case 'first_payment_this_month':
+                $filterStartDate = new DateTime($today->format('Y-m-01'));
+                $filterEndDate = new DateTime($today->format('Y-m-t'));
+                $filterEndDate->setTime(23, 59, 59);
+                break;
+                
+            case 'first_payment_last_7_days':
+                $filterStartDate = (clone $today)->sub(new DateInterval('P7D'))->setTime(0, 0, 0);
+                $filterEndDate = clone $today;
+                $filterEndDate->setTime(23, 59, 59);
+                break;
+                
+            case 'first_payment_last_30_days':
+                $filterStartDate = (clone $today)->sub(new DateInterval('P30D'))->setTime(0, 0, 0);
+                $filterEndDate = clone $today;
+                $filterEndDate->setTime(23, 59, 59);
+                break;
+                
+            case 'first_payment_custom':
             case 'custom_range':
                 if (empty($startDate) || empty($endDate)) {
                     echo json_encode(['error' => 'Start date and end date are required for custom range']);
@@ -205,7 +237,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 try {
                     $filterStartDate = new DateTime($startDate);
+                    $filterStartDate->setTime(0, 0, 0);
                     $filterEndDate = new DateTime($endDate);
+                    $filterEndDate->setTime(23, 59, 59);
                 } catch (Exception $e) {
                     echo json_encode(['error' => 'Invalid date format']);
                     exit;
@@ -222,7 +256,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 exit;
         }
         
-        // Function to convert UTC to EAT (East African Time)
+        // Function to convert UTC to EAT
         function convertToEAT($utcDateString) {
             if (empty($utcDateString)) return 'N/A';
             
@@ -231,7 +265,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $eatDate = $utcDate->setTimezone(new DateTimeZone('Africa/Nairobi'));
                 return $eatDate->format('Y-m-d H:i:s');
             } catch (Exception $e) {
-                return $utcDateString; // Return original if conversion fails
+                return $utcDateString;
             }
         }
         
@@ -245,7 +279,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $diff = $today->diff($expiry);
                 
                 if ($expiry < $today) {
-                    return -$diff->days; // Negative for expired
+                    return -$diff->days;
                 } else {
                     return $diff->days;
                 }
@@ -274,11 +308,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
         
+        // Function to get first payment from billing history
+        function getFirstPayment($billingHistories) {
+            if (empty($billingHistories)) {
+                return null;
+            }
+            
+            // Sort billing histories by payment_date to find the first payment
+            $sortedBilling = $billingHistories;
+            usort($sortedBilling, function($a, $b) {
+                $dateA = isset($a['transactionDate']) ? $a['transactionDate'] : '';
+                $dateB = isset($b['transactionDate']) ? $b['transactionDate'] : '';
+                
+                if (empty($dateA)) return 1;
+                if (empty($dateB)) return -1;
+                
+                try {
+                    $dtA = new DateTime($dateA);
+                    $dtB = new DateTime($dateB);
+                    return $dtA <=> $dtB;
+                } catch (Exception $e) {
+                    return 0;
+                }
+            });
+            
+            // Return the first (earliest) billing history entry with a payment date
+            foreach ($sortedBilling as $billing) {
+                if (isset($billing['transactionDate']) && !empty($billing['transactionDate']) && 
+                    isset($billing['status']) && $billing['status'] === 'paid') {
+                    return $billing;
+                }
+            }
+            
+            return null;
+        }
+        
         // Filter and process subscriptions
         $filteredSubscriptions = [];
         $totalRevenue = 0;
         $paidCount = 0;
         $unpaidCount = 0;
+        $conversionCount = 0;
+        $totalFirstPayments = 0;
         
         foreach ($allSubscriptions as $subscription) {
             $business = $subscription['Business'] ?? [];
@@ -316,10 +387,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $unpaidCount++;
             }
             
+            // Get first payment information if this is a conversion report
+            $firstPayment = null;
+            $firstPaymentDate = null;
+            $firstPaymentDateRaw = null;
+            $firstPaymentAmount = 0;
+            
+            if ($isFirstPaymentFilter) {
+                $firstPayment = getFirstPayment($billingHistories);
+                if ($firstPayment) {
+                    $firstPaymentDateRaw = $firstPayment['payment_date'] ?? '';
+                    $firstPaymentDate = convertToEAT($firstPaymentDateRaw);
+                    $firstPaymentAmount = floatval($firstPayment['amount'] ?? 0);
+                }
+            }
+            
             // Apply filters
             $shouldInclude = false;
             
             switch ($filterType) {
+                case 'first_payment_today':
+                case 'first_payment_this_week':
+                case 'first_payment_this_month':
+                case 'first_payment_last_7_days':
+                case 'first_payment_last_30_days':
+                case 'first_payment_custom':
+                    // Filter by first payment date
+                    if ($firstPayment && !empty($firstPaymentDateRaw)) {
+                        try {
+                            $paymentDateObj = new DateTime($firstPaymentDateRaw);
+                            if ($paymentDateObj >= $filterStartDate && $paymentDateObj <= $filterEndDate) {
+                                $shouldInclude = true;
+                                $conversionCount++;
+                                $totalFirstPayments += $firstPaymentAmount;
+                            }
+                        } catch (Exception $e) {
+                            // Skip invalid dates
+                        }
+                    }
+                    break;
+                
                 case 'expiring_today':
                 case 'expiring_this_week':
                 case 'expiring_next_week':
@@ -394,25 +501,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     'daysUntilExpiry' => $daysUntilExpiry,
                     'revenue' => $revenue,
                     'isPaid' => $isPaid,
-                    'billingHistories' => $billingHistories
+                    'billingHistories' => $billingHistories,
+                    'firstPaymentDate' => $firstPaymentDate,
+                    'firstPaymentDateRaw' => $firstPaymentDateRaw,
+                    'firstPaymentAmount' => $firstPaymentAmount
                 ];
             }
         }
         
-        // Sort by end date (ascending - soonest expiry first)
-        usort($filteredSubscriptions, function($a, $b) {
-            if ($a['endDateRaw'] === $b['endDateRaw']) return 0;
-            if (empty($a['endDateRaw'])) return 1;
-            if (empty($b['endDateRaw'])) return -1;
-            
-            try {
-                $dateA = new DateTime($a['endDateRaw']);
-                $dateB = new DateTime($b['endDateRaw']);
-                return $dateA <=> $dateB;
-            } catch (Exception $e) {
-                return 0;
-            }
-        });
+        // Sort by appropriate field
+        if ($isFirstPaymentFilter) {
+            // Sort by first payment date (most recent first)
+            usort($filteredSubscriptions, function($a, $b) {
+                if ($a['firstPaymentDateRaw'] === $b['firstPaymentDateRaw']) return 0;
+                if (empty($a['firstPaymentDateRaw'])) return 1;
+                if (empty($b['firstPaymentDateRaw'])) return -1;
+                
+                try {
+                    $dateA = new DateTime($a['firstPaymentDateRaw']);
+                    $dateB = new DateTime($b['firstPaymentDateRaw']);
+                    return $dateB <=> $dateA; // Descending order
+                } catch (Exception $e) {
+                    return 0;
+                }
+            });
+        } else {
+            // Sort by end date (soonest expiry first)
+            usort($filteredSubscriptions, function($a, $b) {
+                if ($a['endDateRaw'] === $b['endDateRaw']) return 0;
+                if (empty($a['endDateRaw'])) return 1;
+                if (empty($b['endDateRaw'])) return -1;
+                
+                try {
+                    $dateA = new DateTime($a['endDateRaw']);
+                    $dateB = new DateTime($b['endDateRaw']);
+                    return $dateA <=> $dateB;
+                } catch (Exception $e) {
+                    return 0;
+                }
+            });
+        }
         
         // Generate HTML table rows
         $tableRows = '';
@@ -456,6 +584,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                          htmlspecialchars(ucfirst($sub['subscriptionStatus'])) . '</span></td>';
             $tableRows .= '<td><span class="payment-status ' . $paymentClass . '">' . 
                          htmlspecialchars(ucfirst($sub['paymentStatus'])) . '</span></td>';
+            
+            // Add first payment date column for conversion reports
+            if ($isFirstPaymentFilter) {
+                $tableRows .= '<td class="first-payment-col">' . 
+                             htmlspecialchars($sub['firstPaymentDate'] ?? 'N/A') . '</td>';
+            }
+            
             $tableRows .= '<td>' . htmlspecialchars($sub['startDate']) . '</td>';
             $tableRows .= '<td>' . htmlspecialchars($sub['endDate']) . '</td>';
             $tableRows .= '<td>' . htmlspecialchars($daysDisplay) . '</td>';
@@ -476,6 +611,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             'tableRows' => $tableRows
         ];
         
+        // Add conversion-specific metrics
+        if ($isFirstPaymentFilter) {
+            $response['conversionCount'] = $conversionCount;
+            $response['avgRevenue'] = $conversionCount > 0 ? 
+                number_format($totalFirstPayments / $conversionCount, 2) : '0.00';
+        }
+        
         // Add date range info
         if ($filterStartDate && $filterEndDate) {
             $response['dateRange'] = $filterStartDate->format('Y-m-d') . ' to ' . $filterEndDate->format('Y-m-d');
@@ -495,10 +637,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         echo json_encode($response);
         
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'PHP Exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine()]);
+        echo json_encode(['success' => false, 'error' => 'PHP Exception: ' . $e->getMessage()]);
         exit;
     } catch (Error $e) {
-        echo json_encode(['success' => false, 'error' => 'PHP Error: ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine()]);
+        echo json_encode(['success' => false, 'error' => 'PHP Error: ' . $e->getMessage()]);
         exit;
     }
     

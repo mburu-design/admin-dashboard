@@ -269,6 +269,12 @@
                                 <option value="custom_range">Custom Date Range</option>
                                 <option value="all_active">All Active Subscriptions</option>
                                 <option value="unpaid_only">Unpaid Subscriptions Only</option>
+                                <option value="first_payment_today">First Time Payments - Today</option>
+                                <option value="first_payment_this_week">First Time Payments - This Week</option>
+                                <option value="first_payment_this_month">First Time Payments - This Month</option>
+                                <option value="first_payment_last_7_days">First Time Payments - Last 7 Days</option>
+                                <option value="first_payment_last_30_days">First Time Payments - Last 30 Days</option>
+                                <option value="first_payment_custom">First Time Payments - Custom Range</option>
                             </select>
                         </div>
                         
@@ -311,6 +317,14 @@
                         <div class="stat-number" id="totalRevenue">KSH 0</div>
                         <div class="stat-label">Total Revenue</div>
                     </div>
+                    <div class="stat-card" id="conversionCard" style="display: none;">
+                        <div class="stat-number" id="conversionCount">0</div>
+                        <div class="stat-label">First Time Conversions</div>
+                    </div>
+                    <div class="stat-card" id="avgRevenueCard" style="display: none;">
+                        <div class="stat-number" id="avgRevenue">KSH 0</div>
+                        <div class="stat-label">Avg. First Payment</div>
+                    </div>
                 </div>
             </div>
 
@@ -338,6 +352,7 @@
                                 <th>Package</th>
                                 <th>Status</th>
                                 <th>Payment Status</th>
+                                <th class="first-payment-col" style="display: none;">First Payment Date</th>
                                 <th>Start Date</th>
                                 <th>End Date</th>
                                 <th>Days Until Expiry</th>
@@ -366,7 +381,6 @@
             document.getElementById('messageArea').innerHTML = '';
         }
 
-        // Test function to check if PHP is working
         async function testPHP() {
             const loginStatus = document.getElementById('loginStatus');
             loginStatus.innerHTML = '<div class="info">Testing PHP connection...</div>';
@@ -400,12 +414,11 @@
             }
         }
 
-        // Handle filter type change
         document.getElementById('filterType').addEventListener('change', function() {
             const customFields = document.getElementById('customDateFields');
             const customFields2 = document.getElementById('customDateFields2');
             
-            if (this.value === 'custom_range') {
+            if (this.value === 'custom_range' || this.value === 'first_payment_custom') {
                 customFields.style.display = 'block';
                 customFields2.style.display = 'block';
                 document.getElementById('startDate').required = true;
@@ -426,7 +439,6 @@
             loginBtn.textContent = 'Logging in...';
             
             try {
-                // Use our PHP backend to handle login to avoid CORS issues
                 const response = await fetch('analyze_subscriptions.php', {
                     method: 'POST',
                     headers: {
@@ -443,7 +455,6 @@
                     adminToken = data.token;
                     loginStatus.innerHTML = '<div class="success">Login successful!</div>';
                     
-                    // Hide login section and show analysis section
                     document.getElementById('loginSection').style.display = 'none';
                     document.getElementById('analysisSection').style.display = 'block';
                 } else {
@@ -507,17 +518,36 @@
         });
 
         function displayResults(data) {
-            // Update statistics
             document.getElementById('totalSubscriptions').textContent = data.totalSubscriptions || 0;
             document.getElementById('paidSubscriptions').textContent = data.paidSubscriptions || 0;
             document.getElementById('unpaidSubscriptions').textContent = data.unpaidSubscriptions || 0;
             document.getElementById('totalRevenue').textContent = `KSH ${data.totalRevenue || 0}`;
 
-            // Update table
+            const isConversionReport = data.filterType && data.filterType.startsWith('first_payment');
+            const conversionCard = document.getElementById('conversionCard');
+            const avgRevenueCard = document.getElementById('avgRevenueCard');
+            
+            if (isConversionReport) {
+                conversionCard.style.display = 'block';
+                avgRevenueCard.style.display = 'block';
+                document.getElementById('conversionCount').textContent = data.conversionCount || 0;
+                document.getElementById('avgRevenue').textContent = `KSH ${data.avgRevenue || 0}`;
+                
+                document.querySelectorAll('.first-payment-col').forEach(el => {
+                    el.style.display = 'table-cell';
+                });
+            } else {
+                conversionCard.style.display = 'none';
+                avgRevenueCard.style.display = 'none';
+                
+                document.querySelectorAll('.first-payment-col').forEach(el => {
+                    el.style.display = 'none';
+                });
+            }
+
             const tbody = document.getElementById('resultsTableBody');
             tbody.innerHTML = data.tableRows || '';
 
-            // Show all sections
             document.getElementById('statsSection').style.display = 'block';
             document.getElementById('exportSection').style.display = 'block';
             document.getElementById('resultsSection').style.display = 'block';
@@ -529,7 +559,14 @@
                 return;
             }
 
-            let csv = 'Business Name,Business Email,Phone Number,Package,Status,Payment Status,Start Date,End Date,Days Until Expiry,Revenue\n';
+            const isConversionReport = currentAnalysisData.filterType && currentAnalysisData.filterType.startsWith('first_payment');
+            
+            let csv = '';
+            if (isConversionReport) {
+                csv = 'Business Name,Business Email,Phone Number,Package,Status,Payment Status,First Payment Date,Start Date,End Date,Days Until Expiry,Revenue\n';
+            } else {
+                csv = 'Business Name,Business Email,Phone Number,Package,Status,Payment Status,Start Date,End Date,Days Until Expiry,Revenue\n';
+            }
             
             currentAnalysisData.subscriptions.forEach(sub => {
                 const row = [
@@ -539,11 +576,19 @@
                     sub.packageName || '',
                     sub.status || '',
                     sub.paymentStatus || '',
+                ];
+                
+                if (isConversionReport) {
+                    row.push(sub.firstPaymentDate || '');
+                }
+                
+                row.push(
                     sub.startDate || '',
                     sub.endDate || '',
                     sub.daysUntilExpiry || '',
                     sub.revenue || '0'
-                ];
+                );
+                
                 csv += '"' + row.join('","') + '"\n';
             });
 
@@ -551,7 +596,8 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `subscriptions_${new Date().toISOString().split('T')[0]}.csv`;
+            const reportType = isConversionReport ? 'first_time_conversions' : 'subscriptions';
+            a.download = `${reportType}_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
         }
@@ -562,44 +608,65 @@
                 return;
             }
 
-            // Create printable content
+            const isConversionReport = currentAnalysisData.filterType && currentAnalysisData.filterType.startsWith('first_payment');
+            const reportTitle = isConversionReport ? 'First Time Conversions Report' : 'Subscription Analysis Report';
+
+            let statsHTML = `
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-number">${currentAnalysisData.totalSubscriptions}</div>
+                        <div>Total ${isConversionReport ? 'Conversions' : 'Subscriptions'}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">${currentAnalysisData.paidSubscriptions}</div>
+                        <div>Paid Subscriptions</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">${currentAnalysisData.unpaidSubscriptions}</div>
+                        <div>Unpaid Subscriptions</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">KSH ${currentAnalysisData.totalRevenue}</div>
+                        <div>Total Revenue</div>
+                    </div>
+            `;
+
+            if (isConversionReport) {
+                statsHTML += `
+                    <div class="stat-box">
+                        <div class="stat-number">${currentAnalysisData.conversionCount || 0}</div>
+                        <div>First Time Conversions</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">KSH ${currentAnalysisData.avgRevenue || 0}</div>
+                        <div>Average First Payment</div>
+                    </div>
+                `;
+            }
+
+            statsHTML += '</div>';
+
             const printContent = `
                 <html>
                 <head>
-                    <title>Subscription Analysis Report</title>
+                    <title>${reportTitle}</title>
                     <style>
                         body { font-family: Arial, sans-serif; margin: 20px; }
                         h1, h2 { color: #333; }
                         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                         th, td { padding: 8px; text-align: left; border: 1px solid #ddd; font-size: 12px; }
                         th { background-color: #f4f4f4; }
-                        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+                        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
                         .stat-box { border: 1px solid #ddd; padding: 10px; text-align: center; }
                         .stat-number { font-size: 18px; font-weight: bold; color: #007BFF; }
                     </style>
                 </head>
                 <body>
-                    <h1>Subscription Analysis Report</h1>
+                    <h1>${reportTitle}</h1>
                     <p>Generated on: ${new Date().toLocaleString()}</p>
+                    <p>Report Period: ${currentAnalysisData.dateRange || 'All time'}</p>
                     
-                    <div class="stats">
-                        <div class="stat-box">
-                            <div class="stat-number">${currentAnalysisData.totalSubscriptions}</div>
-                            <div>Total Subscriptions</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-number">${currentAnalysisData.paidSubscriptions}</div>
-                            <div>Paid Subscriptions</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-number">${currentAnalysisData.unpaidSubscriptions}</div>
-                            <div>Unpaid Subscriptions</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-number">KSH ${currentAnalysisData.totalRevenue}</div>
-                            <div>Total Revenue</div>
-                        </div>
-                    </div>
+                    ${statsHTML}
                     
                     ${document.getElementById('resultsSection').innerHTML}
                 </body>
@@ -615,11 +682,11 @@
         }
 
         function exportToExcel() {
-            exportToCSV(); // For now, CSV export works for Excel
+            exportToCSV();
         }
 
         function printResults() {
-            exportToPDF(); // Use PDF export for printing
+            exportToPDF();
         }
     </script>
 </body>
