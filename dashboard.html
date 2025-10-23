@@ -375,7 +375,137 @@
             flex-wrap: wrap;
             margin-top: 15px;
         }
+        /* Lead Update Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    animation: fadeIn 0.3s;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.close-modal {
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.close-modal:hover {
+    color: #000;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-info {
+    background: #17a2b8;
+    color: white;
+}
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.action-buttons .btn-sm {
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 5px 10px;
+}
     </style>
+
+    <!-- jsPDF Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <!-- Login Page -->
@@ -417,6 +547,9 @@
                 </div>
                 <div class="nav-item" onclick="showSection('loginLogs')">
                     🔐 Login Logs
+                </div>
+                <div class="nav-item" onclick="showSection('leads')">
+                    🔐 Leads
                 </div>
             </div>
             
@@ -638,6 +771,285 @@
                                 <tbody id="loginLogTableBody"></tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+
+               <div id="leads" class="section">
+                    <div class="card">
+                        <h2>Lead Management</h2>
+                        
+                        <!-- Filters -->
+                        <div class="filter-section">
+                            <div class="filter-group">
+                                <label>Stage</label>
+                                <select id="leadStageFilter">
+                                    <option value="">All Stages</option>
+                                    <option value="new">New</option>
+                                    <option value="assigned">Assigned</option>
+                                    <option value="in_process">In Process</option>
+                                    <option value="converted">Converted</option>
+                                    <option value="recycled">Recycled</option>
+                                    <option value="dead">Dead</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Start Date</label>
+                                <input type="date" id="leadStartDate">
+                            </div>
+                            <div class="filter-group">
+                                <label>End Date</label>
+                                <input type="date" id="leadEndDate">
+                            </div>
+                            <div class="filter-group">
+                                <label>Search (Name/Email/Phone)</label>
+                                <input type="text" id="leadSearch" placeholder="Type to search...">
+                            </div>
+                        </div>
+
+                      
+                        
+                     <div class="button-group">
+                        <button class="btn btn-primary" onclick="loadLeads(true)">Load Last 7 Days</button>
+                        <button class="btn btn-primary" onclick="loadLeads()">Load with Filters</button>
+                        <button class="btn btn-success" onclick="generateLeadsPDFReport()">📊 Generate PDF Report</button>
+                        <button class="btn btn-success" onclick="openImportModal()">📤 Import Leads</button>
+                    </div>
+                        
+                        <div id="leadMessage"></div>
+                        <div id="leadStats"></div>
+                        
+                        <div class="table-container">
+                            <table id="leadTable" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>Stage</th>
+                                        <th>Assigned To</th>
+                                        <th>Is Contacted</th>
+                                        <th>Contacted By</th>
+                                        <th>Feedback</th>
+                                        <th>Created Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leadTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lead Update Modal -->
+                <div id="leadModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Update Lead</h2>
+                            <button class="close-modal" onclick="closeLeadModal()">&times;</button>
+                        </div>
+                        <form id="leadUpdateForm">
+                            <input type="hidden" id="modalLeadId">
+                            
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" id="modalLeadName" readonly style="background: #f5f5f5;">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" id="modalLeadEmail">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Phone</label>
+                                <input type="text" id="modalLeadPhone">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Company</label>
+                                <input type="text" id="modalLeadCompany">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Stage *</label>
+                                <select id="modalLeadStage" required>
+                                    <option value="new">New</option>
+                                    <option value="assigned">Assigned</option>
+                                    <option value="in_process">In Process</option>
+                                    <option value="converted">Converted</option>
+                                    <option value="recycled">Recycled</option>
+                                    <option value="dead">Dead</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Assigned To</label>
+                                <input type="text" id="modalLeadAssignedTo">
+                            </div>
+                            
+                            <div class="form-group checkbox-group">
+                                <input type="checkbox" id="modalLeadContacted">
+                                <label for="modalLeadContacted" style="margin: 0;">Mark as Contacted</label>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Contacted By</label>
+                                <input type="text" id="modalLeadContactedBy">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea id="modalLeadDescription"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Notes</label>
+                                <textarea id="modalLeadNotes"></textarea>
+                            </div>
+                            
+                            <div class="form-group" id="recycledReasonGroup" style="display: none;">
+                                <label>Recycled Reason</label>
+                                <textarea id="modalLeadRecycledReason"></textarea>
+                            </div>
+                            
+                            <div class="form-group" id="deadReasonGroup" style="display: none;">
+                                <label>Dead Reason</label>
+                                <textarea id="modalLeadDeadReason"></textarea>
+                            </div>
+                            
+                            <div class="button-group">
+                                <button type="submit" class="btn btn-primary">Update Lead</button>
+                                <button type="button" class="btn btn-danger" onclick="closeLeadModal()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Assign Lead Modal -->
+                <div id="assignModal" class="modal">
+                    <div class="modal-content" style="max-width: 400px;">
+                        <div class="modal-header">
+                            <h2>Assign Lead</h2>
+                            <button class="close-modal" onclick="closeAssignModal()">&times;</button>
+                        </div>
+                        <form id="assignForm">
+                            <input type="hidden" id="assignLeadId">
+                            <div class="form-group">
+                                <label>Lead Name</label>
+                                <input type="text" id="assignLeadName" readonly style="background: #f5f5f5;">
+                            </div>
+                            <div class="form-group">
+                                <label>Assign To *</label>
+                                <select id="assignToAdmin" required>
+                                    <option value="">Select Admin...</option>
+                                </select>
+                            </div>
+                            <div class="button-group">
+                                <button type="submit" class="btn btn-primary">Assign Lead</button>
+                                <button type="button" class="btn btn-danger" onclick="closeAssignModal()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Mark as Contacted Modal -->
+                <div id="contactModal" class="modal">
+                    <div class="modal-content" style="max-width: 500px;">
+                        <div class="modal-header">
+                            <h2>Mark as Contacted</h2>
+                            <button class="close-modal" onclick="closeContactModal()">&times;</button>
+                        </div>
+                        <form id="contactForm">
+                            <input type="hidden" id="contactLeadId">
+                            <div class="form-group">
+                                <label>Lead Name</label>
+                                <input type="text" id="contactLeadName" readonly style="background: #f5f5f5;">
+                            </div>
+                            <div class="form-group">
+                                <label>Contacted By *</label>
+                                <input type="text" id="contactedByName" required placeholder="Your name">
+                            </div>
+                            <div class="form-group">
+                                <label>Feedback *</label>
+                                <textarea id="contactFeedback" required placeholder="Enter feedback from the contact..." rows="4"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Comments</label>
+                                <textarea id="contactComments" placeholder="Additional comments..." rows="3"></textarea>
+                            </div>
+                            <div class="button-group">
+                                <button type="submit" class="btn btn-success">Save Contact Info</button>
+                                <button type="button" class="btn btn-danger" onclick="closeContactModal()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- View Lead Details Modal -->
+                <div id="viewLeadModal" class="modal">
+                    <div class="modal-content" style="max-width: 700px;">
+                        <div class="modal-header">
+                            <h2>Lead Details</h2>
+                            <button class="close-modal" onclick="closeViewLeadModal()">&times;</button>
+                        </div>
+                        <div id="leadDetailsContent" style="line-height: 1.8;">
+                            <!-- Details will be populated here -->
+                        </div>
+                        <div class="button-group" style="margin-top: 20px;">
+                            <button class="btn btn-danger" onclick="closeViewLeadModal()">Close</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Import Leads Modal -->
+                <div id="importModal" class="modal">
+                    <div class="modal-content" style="max-width: 600px;">
+                        <div class="modal-header">
+                            <h2>Import Leads</h2>
+                            <button class="close-modal" onclick="closeImportModal()">&times;</button>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px; padding: 15px; background: #e7f3ff; border-radius: 8px; border-left: 4px solid #667eea;">
+                            <strong>📋 Supported Formats:</strong>
+                            <ul style="margin: 10px 0 0 20px; line-height: 1.8;">
+                                <li>CSV (.csv)</li>
+                                <li>Excel (.xlsx, .xls)</li>
+                            </ul>
+                        </div>
+                        
+                        <form id="importForm">
+                            <div class="form-group">
+                                <label>Select File *</label>
+                                <input type="file" id="importFileInput" accept=".csv,.xlsx,.xls" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Source *</label>
+                                <select id="importSource" required>
+                                    <option value="">Select Source...</option>
+                                    <option value="meta">Meta (Facebook/Instagram)</option>
+                                    <option value="tiktok">TikTok</option>
+                                    <option value="manual">Manual Entry</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            
+                            <div id="importProgressDiv" style="display: none; margin: 20px 0;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span>Uploading...</span>
+                                    <span id="importProgressText">0%</span>
+                                </div>
+                                <div style="background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden;">
+                                    <div id="importProgressBar" style="background: #667eea; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                </div>
+                            </div>
+                            
+                            <div id="importResultMessage"></div>
+                            
+                            <div class="button-group" style="margin-top: 20px;">
+                                <button type="submit" class="btn btn-success">📤 Upload & Import</button>
+                                <button type="button" class="btn btn-danger" onclick="closeImportModal()">Cancel</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -1262,6 +1674,1074 @@
             `;
             document.getElementById('loginLogStats').innerHTML = stats;
         }
+
+        // Lead Management Functions
+let currentLeads = [];
+let currentEditingLead = null;
+
+async function loadLeads(autoLoad = false) {
+    clearMessage('leadMessage');
+    showMessage('leadMessage', 'Loading leads...', 'info');
+    
+    try {
+        let stage = document.getElementById('leadStageFilter').value;
+        let startDate = document.getElementById('leadStartDate').value;
+        let endDate = document.getElementById('leadEndDate').value;
+        const search = document.getElementById('leadSearch').value;
+        
+        // Auto-load last 7 days if no dates set
+        if (autoLoad && !startDate && !endDate) {
+            const today = new Date();
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 7);
+            
+            startDate = sevenDaysAgo.toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
+            
+            // Set the date inputs to show what's loaded
+            document.getElementById('leadStartDate').value = startDate;
+            document.getElementById('leadEndDate').value = endDate;
+        }
+        
+        const response = await fetch('leads.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'fetchLeads',
+                token: adminToken,
+                stage,
+                startDate,
+                endDate,
+                search
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        currentLeads = data.leads || [];
+        displayLeads(currentLeads, data.stats);
+        
+        const dateInfo = autoLoad ? ' (Last 7 days)' : '';
+        showMessage('leadMessage', `Loaded ${currentLeads.length} leads successfully${dateInfo}`, 'success');
+    } catch (error) {
+        showMessage('leadMessage', 'Error: ' + error.message, 'error');
+    }
+}
+
+function displayLeads(leads, stats) {
+    const tbody = document.getElementById('leadTableBody');
+    const table = document.getElementById('leadTable');
+    
+    tbody.innerHTML = '';
+    
+    if (leads.length === 0) {
+        showMessage('leadMessage', 'No leads found matching your filters', 'info');
+        table.style.display = 'none';
+        return;
+    }
+    
+    leads.forEach(lead => {
+        const stageColors = {
+            'new': 'badge-info',
+            'assigned': 'badge-warning',
+            'in_process': 'badge-primary',
+            'converted': 'badge-active',
+            'recycled': 'badge-standard',
+            'dead': 'badge-inactive'
+        };
+        
+        const stageBadge = stageColors[lead.stage] || 'badge-standard';
+        
+       const contactedBadge = lead.isContacted ? 
+    '<span class="badge badge-active">Yes</span>' : 
+    '<span class="badge badge-inactive">No</span>';
+    
+const feedbackPreview = lead.feedback ? 
+    (lead.feedback.length > 30 ? lead.feedback.substring(0, 30) + '...' : lead.feedback) : 
+    'N/A';
+
+    const row = `
+        <tr>
+            <td>${lead.name || 'N/A'}</td>
+            <td>${lead.email || 'N/A'}</td>
+            <td>${lead.phone || 'N/A'}</td>
+            <td><span class="badge ${stageBadge}">${lead.stage.replace('_', ' ').toUpperCase()}</span></td>
+            <td>${lead.assignedTo || 'Unassigned'}</td>
+            <td>${contactedBadge}</td>
+            <td>${lead.contactedBy || 'N/A'}</td>
+            <td style="font-size: 12px;">${feedbackPreview}</td>
+            <td>${new Date(lead.created_at).toLocaleDateString()}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-sm btn-info" onclick='viewLeadDetails(${JSON.stringify(lead).replace(/'/g, "&apos;")})'>
+                        👁️ View
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick='openAssignModal("${lead.id}", "${lead.name}")'>
+                        Assign
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick='openContactModal("${lead.id}", "${lead.name}")'>
+                        Contact
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick='quickUpdateStage("${lead.id}", "converted")'>
+                        Convert
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+        
+    tbody.innerHTML += row;
+    });
+    
+    table.style.display = 'table';
+    
+    // Display stats
+    const statsHTML = `
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">${stats.total}</div>
+                <div class="stat-label">Total Leads</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${stats.new}</div>
+                <div class="stat-label">New</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${stats.converted}</div>
+                <div class="stat-label">Converted</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${stats.contacted}</div>
+                <div class="stat-label">Contacted</div>
+            </div>
+        </div>
+    `;
+    document.getElementById('leadStats').innerHTML = statsHTML;
+}
+
+function openLeadModal(lead) {
+    currentEditingLead = lead;
+    
+    document.getElementById('modalLeadId').value = lead.id;
+    document.getElementById('modalLeadName').value = lead.name || '';
+    document.getElementById('modalLeadEmail').value = lead.email || '';
+    document.getElementById('modalLeadPhone').value = lead.phone || '';
+    document.getElementById('modalLeadCompany').value = lead.company || '';
+    document.getElementById('modalLeadStage').value = lead.stage;
+    document.getElementById('modalLeadAssignedTo').value = lead.assignedTo || '';
+    document.getElementById('modalLeadContacted').checked = lead.isContacted;
+    document.getElementById('modalLeadContactedBy').value = lead.contactedBy || '';
+    document.getElementById('modalLeadDescription').value = lead.description || '';
+    document.getElementById('modalLeadNotes').value = lead.notes || '';
+    document.getElementById('modalLeadRecycledReason').value = lead.recycledReason || '';
+    document.getElementById('modalLeadDeadReason').value = lead.deadReason || '';
+    
+    toggleReasonFields(lead.stage);
+    
+    document.getElementById('leadModal').style.display = 'block';
+}
+
+function closeLeadModal() {
+    document.getElementById('leadModal').style.display = 'none';
+    currentEditingLead = null;
+}
+
+// Show/hide reason fields based on stage
+document.getElementById('modalLeadStage').addEventListener('change', function() {
+    toggleReasonFields(this.value);
+});
+
+function toggleReasonFields(stage) {
+    document.getElementById('recycledReasonGroup').style.display = 
+        stage === 'recycled' ? 'block' : 'none';
+    document.getElementById('deadReasonGroup').style.display = 
+        stage === 'dead' ? 'block' : 'none';
+}
+
+// Handle form submission
+document.getElementById('leadUpdateForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const leadId = document.getElementById('modalLeadId').value;
+    const updateData = {
+        email: document.getElementById('modalLeadEmail').value,
+        phone: document.getElementById('modalLeadPhone').value,
+        company: document.getElementById('modalLeadCompany').value,
+        stage: document.getElementById('modalLeadStage').value,
+        assignedTo: document.getElementById('modalLeadAssignedTo').value,
+        isContacted: document.getElementById('modalLeadContacted').checked,
+        contactedBy: document.getElementById('modalLeadContactedBy').value,
+        description: document.getElementById('modalLeadDescription').value,
+        notes: document.getElementById('modalLeadNotes').value
+    };
+    
+    if (updateData.stage === 'recycled') {
+        updateData.recycledReason = document.getElementById('modalLeadRecycledReason').value;
+    }
+    
+    if (updateData.stage === 'dead') {
+        updateData.deadReason = document.getElementById('modalLeadDeadReason').value;
+    }
+    
+    try {
+        const response = await fetch('leads.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updateLead',
+                token: adminToken,
+                leadId: leadId,
+                data: updateData
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error updating lead: ' + result.error);
+        } else {
+            alert('Lead updated successfully!');
+            closeLeadModal();
+            loadLeads(); // Reload leads
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+// Quick update stage (inline button)
+async function quickUpdateStage(leadId, newStage) {
+    if (!confirm(`Are you sure you want to mark this lead as ${newStage}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('leads.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updateLead',
+                token: adminToken,
+                leadId: leadId,
+                data: { stage: newStage }
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error: ' + result.error);
+        } else {
+            showMessage('leadMessage', 'Lead updated successfully!', 'success');
+            loadLeads(); // Reload leads
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Generate comprehensive PDF Report
+function generateLeadsPDFReport() {
+    if (currentLeads.length === 0) {
+        alert('No leads to export. Please load leads first.');
+        return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    
+    // Calculate statistics
+    const stats = calculateLeadStatistics(currentLeads);
+    
+    let yPos = 20;
+    
+    // Header
+    doc.setFillColor(102, 126, 234);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont(undefined, 'bold');
+    doc.text('Lead Management Report', 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 30, { align: 'center' });
+    
+    yPos = 50;
+    doc.setTextColor(0, 0, 0);
+    
+    // Executive Summary
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(102, 126, 234);
+    doc.text('Executive Summary', 14, yPos);
+    yPos += 10;
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(0, 0, 0);
+    
+    // Summary stats in a grid
+    const summaryData = [
+        ['Total Leads', stats.total.toString()],
+        ['Contacted', stats.contacted.toString()],
+        ['Converted', stats.converted.toString()],
+        ['Conversion Rate', `${stats.conversionRate}%`]
+    ];
+    
+    doc.autoTable({
+        startY: yPos,
+        head: [['Metric', 'Value']],
+        body: summaryData,
+        theme: 'grid',
+        headStyles: { fillColor: [102, 126, 234], fontSize: 10, fontStyle: 'bold' },
+        columnStyles: { 0: { fontStyle: 'bold' } },
+        margin: { left: 14, right: 14 }
+    });
+    
+    yPos = doc.lastAutoTable.finalY + 15;
+    
+    // Lead Stage Breakdown
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(102, 126, 234);
+    doc.text('Lead Stage Breakdown', 14, yPos);
+    yPos += 10;
+    
+    const stageData = [
+        ['New', stats.byStage.new || 0],
+        ['Assigned', stats.byStage.assigned || 0],
+        ['In Process', stats.byStage.in_process || 0],
+        ['Converted', stats.byStage.converted || 0],
+        ['Recycled', stats.byStage.recycled || 0],
+        ['Dead', stats.byStage.dead || 0]
+    ];
+    
+    doc.autoTable({
+        startY: yPos,
+        head: [['Stage', 'Count']],
+        body: stageData,
+        theme: 'striped',
+        headStyles: { fillColor: [102, 126, 234], fontSize: 10, fontStyle: 'bold' },
+        margin: { left: 14, right: 14 }
+    });
+    
+    yPos = doc.lastAutoTable.finalY + 15;
+    
+    // Check if we need a new page
+    if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+    }
+    
+    // Performance by Admin
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(102, 126, 234);
+    doc.text('Performance by Admin', 14, yPos);
+    yPos += 10;
+    
+    const adminPerformance = stats.byAdmin;
+    const adminData = Object.keys(adminPerformance).map(admin => {
+        const perf = adminPerformance[admin];
+        return [
+            admin,
+            perf.total,
+            perf.contacted,
+            perf.converted,
+            `${perf.contactedRate}%`,
+            `${perf.conversionRate}%`
+        ];
+    });
+    
+    if (adminData.length > 0) {
+        doc.autoTable({
+            startY: yPos,
+            head: [['Admin Name', 'Total', 'Contacted', 'Converted', 'Contact Rate', 'Conv. Rate']],
+            body: adminData,
+            theme: 'grid',
+            headStyles: { fillColor: [102, 126, 234], fontSize: 9, fontStyle: 'bold' },
+            styles: { fontSize: 8 },
+            columnStyles: {
+                0: { cellWidth: 50 },
+                1: { cellWidth: 20, halign: 'center' },
+                2: { cellWidth: 25, halign: 'center' },
+                3: { cellWidth: 25, halign: 'center' },
+                4: { cellWidth: 28, halign: 'center' },
+                5: { cellWidth: 28, halign: 'center' }
+            },
+            margin: { left: 14, right: 14 }
+        });
+        
+        yPos = doc.lastAutoTable.finalY + 15;
+    } else {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(150, 150, 150);
+        doc.text('No admin assignments found', 14, yPos);
+        yPos += 15;
+    }
+    
+    // Check if we need a new page
+    if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+    }
+    
+    // Recent Activity - Contacted Leads
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(102, 126, 234);
+    doc.text('Recently Contacted Leads', 14, yPos);
+    yPos += 10;
+    
+    const contactedLeads = currentLeads
+        .filter(lead => lead.isContacted)
+        .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+        .slice(0, 10);
+    
+    if (contactedLeads.length > 0) {
+        const contactedData = contactedLeads.map(lead => [
+            lead.name || 'N/A',
+            lead.email || 'N/A',
+            lead.contactedBy || 'N/A',
+            lead.stage.replace('_', ' ').toUpperCase(),
+            (lead.feedback || '').substring(0, 40) + (lead.feedback?.length > 40 ? '...' : '')
+        ]);
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Name', 'Email', 'Contacted By', 'Stage', 'Feedback']],
+            body: contactedData,
+            theme: 'striped',
+            headStyles: { fillColor: [40, 167, 69], fontSize: 8, fontStyle: 'bold' },
+            styles: { fontSize: 7 },
+            columnStyles: {
+                0: { cellWidth: 35 },
+                1: { cellWidth: 45 },
+                2: { cellWidth: 30 },
+                3: { cellWidth: 25 },
+                4: { cellWidth: 45 }
+            },
+            margin: { left: 14, right: 14 }
+        });
+        
+        yPos = doc.lastAutoTable.finalY + 15;
+    } else {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(150, 150, 150);
+        doc.text('No contacted leads found', 14, yPos);
+        yPos += 15;
+    }
+    
+    // Check if we need a new page for converted leads
+    if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+    }
+    
+    // Converted Leads
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(102, 126, 234);
+    doc.text('Converted Leads', 14, yPos);
+    yPos += 10;
+    
+    const convertedLeads = currentLeads
+        .filter(lead => lead.stage === 'converted')
+        .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+        .slice(0, 15);
+    
+    if (convertedLeads.length > 0) {
+        const convertedData = convertedLeads.map(lead => [
+            lead.name || 'N/A',
+            lead.email || 'N/A',
+            lead.phone || 'N/A',
+            lead.assignedTo || 'Unassigned',
+            new Date(lead.created_at).toLocaleDateString()
+        ]);
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Name', 'Email', 'Phone', 'Converted By', 'Date']],
+            body: convertedData,
+            theme: 'grid',
+            headStyles: { fillColor: [40, 167, 69], fontSize: 9, fontStyle: 'bold' },
+            styles: { fontSize: 8 },
+            margin: { left: 14, right: 14 }
+        });
+    } else {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(150, 150, 150);
+        doc.text('No converted leads found', 14, yPos);
+    }
+    
+    // Footer on all pages
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+            `Page ${i} of ${pageCount} | MyAccurate Books - Lead Management System`,
+            105,
+            290,
+            { align: 'center' }
+        );
+    }
+    
+    // Save the PDF
+    const filename = `Lead_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+    
+    showMessage('leadMessage', '✅ PDF Report generated successfully!', 'success');
+}
+
+// Import Leads from File
+async function importLeadsFile() {
+    const fileInput = document.getElementById('leadFileInput');
+    const sourceSelect = document.getElementById('leadSource');
+    const importMessage = document.getElementById('importMessage');
+    const progressDiv = document.getElementById('importProgress');
+    const progressBar = document.getElementById('importProgressBar');
+    const progressText = document.getElementById('importProgressText');
+    
+    // Clear previous messages
+    importMessage.innerHTML = '';
+    
+    // Validate inputs
+    if (!fileInput.files || fileInput.files.length === 0) {
+        importMessage.innerHTML = '<div class="message message-error" style="color: white; background: rgba(220, 53, 69, 0.3); border-color: rgba(220, 53, 69, 0.5);">Please select a file to upload</div>';
+        return;
+    }
+    
+    const source = sourceSelect.value;
+    if (!source) {
+        importMessage.innerHTML = '<div class="message message-error" style="color: white; background: rgba(220, 53, 69, 0.3); border-color: rgba(220, 53, 69, 0.5);">Please select a source (Meta or TikTok)</div>';
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    
+    // Validate file type
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        importMessage.innerHTML = '<div class="message message-error" style="color: white; background: rgba(220, 53, 69, 0.3); border-color: rgba(220, 53, 69, 0.5);">Invalid file type. Please upload a CSV or Excel file (.csv, .xlsx, .xls)</div>';
+        return;
+    }
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        importMessage.innerHTML = '<div class="message message-error" style="color: white; background: rgba(220, 53, 69, 0.3); border-color: rgba(220, 53, 69, 0.5);">File is too large. Maximum size is 10MB</div>';
+        return;
+    }
+    
+    // Show progress
+    progressDiv.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('source', source);
+        formData.append('token', adminToken);
+        
+        // Simulate progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+                progressText.textContent = progress + '%';
+            }
+        }, 200);
+        
+        const response = await fetch('import_leads.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        progressText.textContent = '100%';
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        
+        // Show success message
+        let successHTML = `
+            <div class="message message-success" style="color: white; background: rgba(40, 167, 69, 0.3); border-color: rgba(40, 167, 69, 0.5);">
+                <strong>✅ Import Successful!</strong><br>
+                <div style="margin-top: 10px; line-height: 1.8;">
+                    📊 Source: <strong>${result.source.toUpperCase()}</strong><br>
+                    📝 Total Parsed: <strong>${result.totalParsed}</strong><br>
+                    ✅ Successfully Imported: <strong>${result.totalImported}</strong><br>
+                    ${result.totalErrors > 0 ? `❌ Errors: <strong>${result.totalErrors}</strong>` : ''}
+                </div>
+            </div>
+        `;
+        
+        // Show sample errors if any
+        if (result.sampleErrors && result.sampleErrors.length > 0) {
+            successHTML += `
+                <div style="margin-top: 10px; padding: 10px; background: rgba(255,193,7,0.2); border-radius: 6px;">
+                    <strong>⚠️ Sample Errors (first 5):</strong>
+                    <ul style="margin-top: 5px; padding-left: 20px;">
+            `;
+            result.sampleErrors.slice(0, 5).forEach(err => {
+                successHTML += `<li>Row ${err.index + 1}: ${JSON.stringify(err.issues).substring(0, 100)}...</li>`;
+            });
+            successHTML += `</ul></div>`;
+        }
+        
+        importMessage.innerHTML = successHTML;
+        
+        // Clear file input
+        fileInput.value = '';
+        
+        // Hide progress after 2 seconds
+        setTimeout(() => {
+            progressDiv.style.display = 'none';
+        }, 2000);
+        
+        // Reload leads if on leads page
+        setTimeout(() => {
+            loadLeads(true);
+        }, 2500);
+        
+    } catch (error) {
+        progressDiv.style.display = 'none';
+        importMessage.innerHTML = `
+            <div class="message message-error" style="color: white; background: rgba(220, 53, 69, 0.3); border-color: rgba(220, 53, 69, 0.5);">
+                <strong>❌ Import Failed</strong><br>
+                ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Helper function to show import tips
+function showImportTips() {
+    const tips = `
+        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <strong>📋 Import Tips:</strong>
+            <ul style="margin-top: 10px; padding-left: 20px; line-height: 1.8;">
+                <li><strong>Meta/Facebook:</strong> Should contain columns like "Full name", "Email", "Phone number"</li>
+                <li><strong>TikTok:</strong> Should contain columns matching TikTok's lead export format</li>
+                <li>Maximum file size: <strong>10MB</strong></li>
+                <li>Supported formats: <strong>.csv, .xlsx, .xls</strong></li>
+                <li>Duplicate emails will be updated with new information</li>
+            </ul>
+        </div>
+    `;
+    return tips;
+}
+// Calculate comprehensive statistics
+function calculateLeadStatistics(leads) {
+    const stats = {
+        total: leads.length,
+        contacted: 0,
+        converted: 0,
+        byStage: {},
+        byAdmin: {}
+    };
+    
+    leads.forEach(lead => {
+        // Count contacted
+        if (lead.isContacted) stats.contacted++;
+        
+        // Count by stage
+        if (!stats.byStage[lead.stage]) {
+            stats.byStage[lead.stage] = 0;
+        }
+        stats.byStage[lead.stage]++;
+        
+        // Count converted
+        if (lead.stage === 'converted') stats.converted++;
+        
+        // Count by admin
+        const adminName = lead.assignedTo || 'Unassigned';
+        if (!stats.byAdmin[adminName]) {
+            stats.byAdmin[adminName] = {
+                total: 0,
+                contacted: 0,
+                converted: 0
+            };
+        }
+        stats.byAdmin[adminName].total++;
+        if (lead.isContacted) stats.byAdmin[adminName].contacted++;
+        if (lead.stage === 'converted') stats.byAdmin[adminName].converted++;
+    });
+    
+    // Calculate rates
+    stats.conversionRate = stats.total > 0 ? 
+        ((stats.converted / stats.total) * 100).toFixed(1) : '0.0';
+    
+    // Calculate admin rates
+    Object.keys(stats.byAdmin).forEach(admin => {
+        const adminStats = stats.byAdmin[admin];
+        adminStats.contactedRate = adminStats.total > 0 ?
+            ((adminStats.contacted / adminStats.total) * 100).toFixed(1) : '0.0';
+        adminStats.conversionRate = adminStats.total > 0 ?
+            ((adminStats.converted / adminStats.total) * 100).toFixed(1) : '0.0';
+    });
+    
+    return stats;
+}
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('leadModal');
+    if (event.target === modal) {
+        closeLeadModal();
+    }
+};
+
+// Auto-load leads when navigating to leads section
+document.addEventListener('DOMContentLoaded', function() {
+    // Listen for navigation to leads section
+    const leadsNavItem = document.querySelector('.nav-item[onclick*="leads"]');
+    if (leadsNavItem) {
+        const originalOnClick = leadsNavItem.onclick;
+        leadsNavItem.onclick = function(e) {
+            originalOnClick.call(this, e);
+            
+            // Check if leads haven't been loaded yet
+            if (currentLeads.length === 0 && adminToken) {
+                setTimeout(() => {
+                    loadLeads(true); // true = auto-load mode
+                }, 100);
+            }
+        };
+    }
+});
+
+// Global variable for admins
+let adminsList = [];
+
+// Load admins list on page load
+async function loadAdmins() {
+    try {
+        const response = await fetch('leads.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'getAdmins',
+                token: adminToken
+            })
+        });
+        
+        const data = await response.json();
+        if (data.admins) {
+            adminsList = data.admins;
+            populateAdminDropdown();
+        }
+    } catch (error) {
+        console.error('Error loading admins:', error);
+    }
+}
+
+function populateAdminDropdown() {
+    const select = document.getElementById('assignToAdmin');
+    select.innerHTML = '<option value="">Select Admin...</option>';
+    
+    adminsList.forEach(admin => {
+        const option = document.createElement('option');
+        option.value = admin.name;
+        option.textContent = `${admin.name} (${admin.email})`;
+        select.appendChild(option);
+    });
+}
+
+// Assign Modal Functions
+function openAssignModal(leadId, leadName) {
+    document.getElementById('assignLeadId').value = leadId;
+    document.getElementById('assignLeadName').value = leadName;
+    document.getElementById('assignModal').style.display = 'block';
+    
+    if (adminsList.length === 0) {
+        loadAdmins();
+    }
+}
+
+function closeAssignModal() {
+    document.getElementById('assignModal').style.display = 'none';
+    document.getElementById('assignForm').reset();
+}
+
+document.getElementById('assignForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const leadId = document.getElementById('assignLeadId').value;
+    const assignTo = document.getElementById('assignToAdmin').value;
+    
+    try {
+        const response = await fetch('leads.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updateLead',
+                token: adminToken,
+                leadId: leadId,
+                data: { 
+                    assignedTo: assignTo,
+                    stage: 'assigned'
+                }
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error assigning lead: ' + result.error);
+        } else {
+            alert('Lead assigned successfully!');
+            closeAssignModal();
+            loadLeads();
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+// Contact Modal Functions
+function openContactModal(leadId, leadName) {
+    document.getElementById('contactLeadId').value = leadId;
+    document.getElementById('contactLeadName').value = leadName;
+    document.getElementById('contactModal').style.display = 'block';
+}
+
+function closeContactModal() {
+    document.getElementById('contactModal').style.display = 'none';
+    document.getElementById('contactForm').reset();
+}
+
+document.getElementById('contactForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const leadId = document.getElementById('contactLeadId').value;
+    const contactedBy = document.getElementById('contactedByName').value;
+    const feedback = document.getElementById('contactFeedback').value;
+    const comments = document.getElementById('contactComments').value;
+    
+    try {
+        const response = await fetch('leads.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updateLead',
+                token: adminToken,
+                leadId: leadId,
+                data: { 
+                    isContacted: true,
+                    contactedBy: contactedBy,
+                    feedback: feedback,
+                    notes: comments
+                }
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error updating contact info: ' + result.error);
+        } else {
+            alert('Contact information saved successfully!');
+            closeContactModal();
+            loadLeads();
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+// View Lead Details
+function viewLeadDetails(lead) {
+    const contactedStatus = lead.isContacted ? 
+        '<span class="badge badge-active">Yes</span>' : 
+        '<span class="badge badge-inactive">No</span>';
+    
+    const detailsHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3 style="color: #667eea; margin-bottom: 15px;">Basic Information</h3>
+                <p><strong>Name:</strong> ${lead.name || 'N/A'}</p>
+                <p><strong>Email:</strong> ${lead.email || 'N/A'}</p>
+                <p><strong>Phone:</strong> ${lead.phone || 'N/A'}</p>
+                <p><strong>Company:</strong> ${lead.company || 'N/A'}</p>
+                <p><strong>Source:</strong> ${lead.source || 'N/A'}</p>
+                <p><strong>Campaign:</strong> ${lead.campaignName || 'N/A'}</p>
+            </div>
+            <div>
+                <h3 style="color: #667eea; margin-bottom: 15px;">Status & Assignment</h3>
+                <p><strong>Stage:</strong> ${lead.stage.replace('_', ' ').toUpperCase()}</p>
+                <p><strong>Assigned To:</strong> ${lead.assignedTo || 'Unassigned'}</p>
+                <p><strong>Is Contacted:</strong> ${contactedStatus}</p>
+                <p><strong>Contacted By:</strong> ${lead.contactedBy || 'N/A'}</p>
+                <p><strong>Created:</strong> ${new Date(lead.created_at).toLocaleString()}</p>
+                <p><strong>Last Updated:</strong> ${lead.updated_at ? new Date(lead.updated_at).toLocaleString() : 'N/A'}</p>
+            </div>
+        </div>
+        <div style="margin-top: 20px;">
+            <h3 style="color: #667eea; margin-bottom: 10px;">Description</h3>
+            <p style="background: #f5f5f5; padding: 10px; border-radius: 6px;">${lead.description || 'No description available'}</p>
+        </div>
+        <div style="margin-top: 15px;">
+            <h3 style="color: #667eea; margin-bottom: 10px;">Feedback</h3>
+            <p style="background: #f5f5f5; padding: 10px; border-radius: 6px;">${lead.feedback || 'No feedback yet'}</p>
+        </div>
+        <div style="margin-top: 15px;">
+            <h3 style="color: #667eea; margin-bottom: 10px;">Notes</h3>
+            <p style="background: #f5f5f5; padding: 10px; border-radius: 6px;">${lead.notes || 'No notes'}</p>
+        </div>
+        ${lead.recycledReason ? `
+        <div style="margin-top: 15px;">
+            <h3 style="color: #ffc107; margin-bottom: 10px;">Recycled Reason</h3>
+            <p style="background: #fff3cd; padding: 10px; border-radius: 6px;">${lead.recycledReason}</p>
+        </div>` : ''}
+        ${lead.deadReason ? `
+        <div style="margin-top: 15px;">
+            <h3 style="color: #dc3545; margin-bottom: 10px;">Dead Reason</h3>
+            <p style="background: #f8d7da; padding: 10px; border-radius: 6px;">${lead.deadReason}</p>
+        </div>` : ''}
+    `;
+    
+    document.getElementById('leadDetailsContent').innerHTML = detailsHTML;
+    document.getElementById('viewLeadModal').style.display = 'block';
+}
+
+// Import Modal Functions
+function openImportModal() {
+    document.getElementById('importModal').style.display = 'block';
+    document.getElementById('importForm').reset();
+    document.getElementById('importResultMessage').innerHTML = '';
+    document.getElementById('importProgressDiv').style.display = 'none';
+}
+
+function closeImportModal() {
+    document.getElementById('importModal').style.display = 'none';
+}
+
+// Handle Import Form Submission
+document.getElementById('importForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('importFileInput');
+    const source = document.getElementById('importSource').value;
+    const resultMessage = document.getElementById('importResultMessage');
+    const progressDiv = document.getElementById('importProgressDiv');
+    const progressBar = document.getElementById('importProgressBar');
+    const progressText = document.getElementById('importProgressText');
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+        resultMessage.innerHTML = '<div class="message message-error">Please select a file</div>';
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    
+    // Validate file type
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        resultMessage.innerHTML = '<div class="message message-error">Invalid file type. Please upload CSV or Excel file</div>';
+        return;
+    }
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        resultMessage.innerHTML = '<div class="message message-error">File too large. Maximum size is 10MB</div>';
+        return;
+    }
+    
+    // Show progress
+    progressDiv.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    resultMessage.innerHTML = '';
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('source', source);
+        formData.append('token', adminToken);
+        
+        // Simulate progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+                progressText.textContent = progress + '%';
+            }
+        }, 200);
+        
+        const response = await fetch('import_leads.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        progressText.textContent = '100%';
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        
+        // Show success message
+        let successHTML = `
+            <div class="message message-success">
+                <strong>✅ Import Successful!</strong><br>
+                <div style="margin-top: 10px; line-height: 1.8;">
+                    📊 Source: <strong>${result.source.toUpperCase()}</strong><br>
+                    📝 Total Parsed: <strong>${result.totalParsed}</strong><br>
+                    ✅ Successfully Imported: <strong>${result.totalImported}</strong><br>
+                    ${result.totalErrors > 0 ? `❌ Errors: <strong>${result.totalErrors}</strong>` : ''}
+                </div>
+            </div>
+        `;
+        
+        resultMessage.innerHTML = successHTML;
+        
+        // Clear file input
+        fileInput.value = '';
+        
+        // Reload leads after 2 seconds
+        setTimeout(() => {
+            closeImportModal();
+            loadLeads(true);
+        }, 2000);
+        
+    } catch (error) {
+        progressDiv.style.display = 'none';
+        resultMessage.innerHTML = `
+            <div class="message message-error">
+                <strong>❌ Import Failed</strong><br>
+                ${error.message}
+            </div>
+        `;
+    }
+});
+function closeViewLeadModal() {
+    document.getElementById('viewLeadModal').style.display = 'none';
+}
+
+// Update window.onclick to handle all modals
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+};
     </script>
 </body>
 </html>
