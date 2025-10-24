@@ -107,8 +107,8 @@
           <p>Review login attempts and activity.</p>
         </a>
         <a class="card" href="dashboard.html">
-          <h3>Legacy Dashboard</h3>
-          <p>Original standalone dashboard page.</p>
+          <h3>Main Dashboard</h3>
+          <p>Main dashboard page.</p>
         </a>
       </div>
     </section>
