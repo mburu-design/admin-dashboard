@@ -8,7 +8,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-$BASE_URL = 'https://crmbackend.myaccuratebook.com/api/admin';
+// $BASE_URL = 'https://crmbackend.myaccuratebook.com/api/admin';
+$BASE_URL = 'http://localhost:7000/api/admin';
+
 $AUTH_TOKEN = 'zWWq5BWO+anUMgWtimvvCguXwU=wAMnzI6grv9WkCFsIdkBydGV4SDZQQHNz';
 
 function makeRequest($endpoint, $method = 'GET', $data = null, $token = null) {

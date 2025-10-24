@@ -673,29 +673,55 @@
                 </div>
 
                 <!-- Payments Section -->
-                <div id="payments" class="section">
-                    <div class="card">
-                        <h2>Payment Records</h2>
-                        <button class="btn btn-primary" onclick="loadPayments()">Load All Payments</button>
-                        <button class="btn btn-success" onclick="exportPayments()" style="margin-left: 10px;">Export to Excel</button>
-                        <div id="paymentMessage"></div>
-                        <div id="paymentStats"></div>
-                        <div class="table-container">
-                            <table id="paymentTable" style="display: none;">
-                                <thead>
-                                    <tr>
-                                        <th>Business Name</th>
-                                        <th>Email</th>
-                                        <th>Phone</th>
-                                        <th>Transaction Count</th>
-                                        <th>Total Spent</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="paymentTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+               <!-- Payments Section -->
+<div id="payments" class="section">
+    <div class="card">
+        <h2>Payment Records</h2>
+        
+        <!-- ADD THESE FILTER FIELDS -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <label>Start Date</label>
+                <input type="date" id="paymentStartDate">
+            </div>
+            <div class="filter-group">
+                <label>End Date</label>
+                <input type="date" id="paymentEndDate">
+            </div>
+            <div class="filter-group">
+                <label>Business Name (Search)</label>
+                <input type="text" id="paymentSearchBusiness" placeholder="Search business...">
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="loadTodayPayments()">📅 Today's Transactions</button>
+            <button class="btn btn-primary" onclick="loadPayments(true)">Load Last 30 Days</button>
+            <button class="btn btn-primary" onclick="loadPayments()">Load with Filters</button>
+            <button class="btn btn-success" onclick="exportPayments()">Export to Excel</button>
+        </div>
+       
+        <div id="paymentMessage"></div>
+        <div id="paymentStats"></div>
+        <div class="table-container">
+            <table id="paymentTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Business Name</th>
+                        <th>Amount</th>
+                        <th>Currency</th>
+                        <th>Status</th>
+                        <th>Payment Method</th>
+                        <th>Transaction Date</th>
+                        <th>Reference Number</th>
+                        <th>Phone Number</th>
+                    </tr>
+                </thead>
+                <tbody id="paymentTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
                 <!-- General Logs Section -->
                 <div id="logs" class="section">
@@ -1313,29 +1339,59 @@
 
             downloadCSV(csv, `subscriptions_${new Date().toISOString().split('T')[0]}.csv`);
         }
-
-        function exportPayments() {
-            if (!currentPaymentData) {
-                alert('No payment data to export. Please load payments first.');
-                return;
-            }
-
-            const customers = currentPaymentData.topCustomers?.byTransactionCount || [];
-            let csv = 'Business Name,Email,Phone,Transaction Count,Total Spent\n';
-            customers.forEach(c => {
-                const row = [
-                    c.businessName || '',
-                    c.email || '',
-                    c.phone || '',
-                    c.transactionCount || '0',
-                    c.totalSpent || '0'
-                ];
-                csv += '"' + row.join('","') + '"\n';
-            });
-
-            downloadCSV(csv, `payments_${new Date().toISOString().split('T')[0]}.csv`);
+        async function exportPayments() {
+    if (!adminToken) {
+        alert('Not authenticated. Please login again.');
+        return;
+    }
+    
+    // Get current filter values
+    const startDate = document.getElementById('paymentStartDate')?.value;
+    const endDate = document.getElementById('paymentEndDate')?.value;
+    
+    // Build API URL with filters
+    let url = `${BASE_URL}/admin/downloadSubscriptionPaymentReport?token=${adminToken}`;
+    
+    if (startDate && endDate) {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+    } else if (startDate) {
+        url += `&startDate=${startDate}`;
+    } else if (endDate) {
+        url += `&endDate=${endDate}`;
+    }
+    
+    try {
+        // Show loading message
+        showMessage('paymentMessage', 'Generating Excel report...', 'info');
+        
+        // Fetch the Excel file
+        const response = await fetch(url, {
+            headers: { 'Authorization': AUTH_TOKEN }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to download payment report');
         }
-
+        
+        // Get the blob
+        const blob = await response.blob();
+        
+        // Create download link
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `Payment_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+        
+        showMessage('paymentMessage', '✅ Excel report downloaded successfully!', 'success');
+    } catch (error) {
+        showMessage('paymentMessage', 'Error downloading report: ' + error.message, 'error');
+    }
+}
+        
         function exportLogs() {
             if (!currentLogData || !currentLogData.businessAnalytics) {
                 alert('No log data to export. Please load logs first.');
@@ -1449,70 +1505,141 @@
             document.getElementById('subscriptionStats').innerHTML = stats;
         }
 
-        async function loadPayments() {
-            clearMessage('paymentMessage');
-            showMessage('paymentMessage', 'Loading payments...', 'info');
+        async function loadPayments(autoLoad = false) {
+        clearMessage('paymentMessage');
+        showMessage('paymentMessage', 'Loading payments...', 'info');
+        
+        try {
+            let startDate = document.getElementById('paymentStartDate')?.value;
+            let endDate = document.getElementById('paymentEndDate')?.value;
             
-            try {
-                const response = await fetch(`${BASE_URL}/admin/getAllSubscriptionPaymnets?token=${adminToken}`, {
-                    headers: { 'Authorization': AUTH_TOKEN }
-                });
-
-                const data = await response.json();
-                displayPayments(data.data);
-                showMessage('paymentMessage', 'Payments loaded successfully', 'success');
-            } catch (error) {
-                showMessage('paymentMessage', 'Error: ' + error.message, 'error');
+            // Auto-load last 30 days if no dates set
+            if (autoLoad && !startDate && !endDate) {
+                const today = new Date();
+                const thirtyDaysAgo = new Date(today);
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+                
+                startDate = thirtyDaysAgo.toISOString().split('T')[0];
+                endDate = today.toISOString().split('T')[0];
+                
+                // Set the date inputs to show what's loaded
+                document.getElementById('paymentStartDate').value = startDate;
+                document.getElementById('paymentEndDate').value = endDate;
             }
-        }
+            
+            // Build URL with date parameters
+            let url = `${BASE_URL}/admin/getAllSubscriptionPaymnets?token=${adminToken}`;
+            
+            if (startDate && endDate) {
+                url += `&startDate=${startDate}&endDate=${endDate}`;
+            } else if (startDate) {
+                url += `&startDate=${startDate}`;
+            } else if (endDate) {
+                url += `&endDate=${endDate}`;
+            }
 
-        function displayPayments(paymentData) {
-            currentPaymentData = paymentData; // Store for export
-            
-            const summary = paymentData.summary || {};
-            const customers = paymentData.topCustomers?.byTransactionCount || [];
-            
-            const stats = `
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number">${summary.totalTransactions || 0}</div>
-                        <div class="stat-label">Total Transactions</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">KSH ${(summary.totalRevenue || 0).toLocaleString()}</div>
-                        <div class="stat-label">Total Revenue</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${summary.successfulPayments || 0}</div>
-                        <div class="stat-label">Successful Payments</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${summary.overallSuccessRate || '0%'}</div>
-                        <div class="stat-label">Success Rate</div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('paymentStats').innerHTML = stats;
-
-            const tbody = document.getElementById('paymentTableBody');
-            const table = document.getElementById('paymentTable');
-            
-            tbody.innerHTML = '';
-            customers.forEach(c => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${c.businessName || 'N/A'}</td>
-                        <td>${c.email || 'N/A'}</td>
-                        <td>${c.phone || 'N/A'}</td>
-                        <td>${c.transactionCount || 0}</td>
-                        <td>KSH ${(c.totalSpent || 0).toLocaleString()}</td>
-                    </tr>
-                `;
+            const response = await fetch(url, {
+                headers: { 'Authorization': AUTH_TOKEN }
             });
 
-            table.style.display = customers.length > 0 ? 'table' : 'none';
+            const data = await response.json();
+            
+            if (!data.success || !data.data) {
+                throw new Error('Failed to load payment data');
+            }
+            
+            displayPayments(data.data);
+            
+            const dateInfo = autoLoad ? ' (Last 30 days)' : '';
+            showMessage('paymentMessage', `Loaded ${data.data.transactions?.length || 0} transactions successfully${dateInfo}`, 'success');
+        } catch (error) {
+            showMessage('paymentMessage', 'Error: ' + error.message, 'error');
         }
+    }
+            
+        function displayPayments(paymentData) {
+        
+        currentPaymentData = paymentData; // Store for export
+    
+    const summary = paymentData.summary || {};
+    
+    // Display summary stats
+    const stats = `
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">${summary.totalTransactions || 0}</div>
+                <div class="stat-label">Total Transactions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">KSH ${(summary.totalRevenue || 0).toLocaleString()}</div>
+                <div class="stat-label">Total Revenue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${summary.successfulPayments || 0}</div>
+                <div class="stat-label">Successful Payments</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${summary.overallSuccessRate || '0%'}</div>
+                <div class="stat-label">Success Rate</div>
+            </div>
+        </div>
+    `;
+    document.getElementById('paymentStats').innerHTML = stats;
 
+    // Get ALL transactions from API
+    let transactions = paymentData.transactions || [];
+    
+    // Apply client-side business name search only (dates already filtered by API)
+    const searchBusiness = document.getElementById('paymentSearchBusiness')?.value?.toLowerCase();
+    
+    if (searchBusiness) {
+        transactions = transactions.filter(t => 
+            t.businessName?.toLowerCase().includes(searchBusiness)
+        );
+    }
+    
+    // Sort by transaction date (newest first)
+    transactions.sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+
+    // Display transactions in table
+    const tbody = document.getElementById('paymentTableBody');
+    const table = document.getElementById('paymentTable');
+    
+    tbody.innerHTML = '';
+    
+    if (transactions.length === 0) {
+        showMessage('paymentMessage', 'No transactions found', 'info');
+        table.style.display = 'none';
+        return;
+    }
+    
+    transactions.forEach(t => {
+        const statusBadge = t.status === 'paid' ? 'badge-active' : 
+                           t.status === 'pending' ? 'badge-warning' : 'badge-inactive';
+        
+        tbody.innerHTML += `
+            <tr>
+                <td>${t.businessName || 'N/A'}</td>
+                <td style="font-weight: bold;">${t.currency} ${(t.amount || 0).toLocaleString()}</td>
+                <td>${t.currency || 'KSH'}</td>
+                <td><span class="badge ${statusBadge}">${t.status?.toUpperCase() || 'N/A'}</span></td>
+                <td>${t.paymentMethod?.toUpperCase() || 'N/A'}</td>
+                <td>${new Date(t.transactionDate).toLocaleString()}</td>
+                <td>${t.referenceNumber || 'N/A'}</td>
+                <td>${t.phoneNumber || 'N/A'}</td>
+            </tr>
+        `;
+    });
+
+    table.style.display = 'table';
+    
+    // Show filtered count if business search is active
+    if (searchBusiness) {
+        showMessage('paymentMessage', 
+            `Showing ${transactions.length} of ${paymentData.transactions?.length || 0} transactions`, 
+            'success');
+    }
+}
         // Load general logs using PHP backend
         async function loadLogs() {
             clearMessage('logMessage');
@@ -2742,6 +2869,37 @@ window.onclick = function(event) {
         event.target.style.display = 'none';
     }
 };
+
+// Auto-load payments when navigating to payments section
+document.addEventListener('DOMContentLoaded', function() {
+    // Store reference to current payments data
+    let paymentsLoaded = false;
+    
+    // Get all nav items
+    const navItems = document.querySelectorAll('.nav-item');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const sectionName = this.textContent.trim();
+            
+            // Auto-load last 30 days when payments section is opened
+            if (sectionName.includes('Payments') && !paymentsLoaded && adminToken) {
+                setTimeout(() => {
+                    loadPayments(true); // true = auto-load mode (last 30 days)
+                    paymentsLoaded = true;
+                }, 100);
+            }
+        });
+    });
+});
+
+// Quick load today's payments
+function loadTodayPayments() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('paymentStartDate').value = today;
+    document.getElementById('paymentEndDate').value = today;
+    loadPayments();
+}
     </script>
 </body>
 </html>
