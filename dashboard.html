@@ -1600,7 +1600,7 @@
     }
     
     // Sort by transaction date (newest first)
-    transactions.sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+    transactions.sort((a, b) => new Date(b.billingDate) - new Date(a.billingDate));
 
     // Display transactions in table
     const tbody = document.getElementById('paymentTableBody');
@@ -1625,7 +1625,7 @@
                 <td>${t.currency || 'KSH'}</td>
                 <td><span class="badge ${statusBadge}">${t.status?.toUpperCase() || 'N/A'}</span></td>
                 <td>${t.paymentMethod?.toUpperCase() || 'N/A'}</td>
-                <td>${new Date(t.transactionDate).toLocaleString()}</td>
+                <td>${new Date(t.billingDate).toLocaleString()}</td>
                 <td>${t.referenceNumber || 'N/A'}</td>
                 <td>${t.phoneNumber || 'N/A'}</td>
             </tr>
