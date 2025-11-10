@@ -187,10 +187,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $businessTransactions[$businessId][] = $transaction;
             }
             
-            // Find first-time payments in the date range
+            // Analyze First-Time Payments and Renewals
             $conversions = [];
+            $renewals = [];
             $totalRevenue = 0;
             $totalTransactionCount = 0;
+            $totalRenewalRevenue = 0;
+            $totalRenewalTransactionCount = 0;
             
             foreach ($businessTransactions as $businessId => $transactions) {
                 // Sort transactions by billing date (oldest first)
@@ -204,15 +207,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                 });
                 
-                // Get the very first transaction for this business (based on billing date)
+                // Get the very first transaction for this business
                 $firstTransaction = $transactions[0];
                 
                 try {
                     $firstTransactionDate = new DateTime($firstTransaction['billingDate']);
                     
-                    // Check if the first transaction's billing date falls within our date range
+                    // Check if the first transaction falls within our date range (FIRST-TIME CUSTOMER)
                     if ($firstTransactionDate >= $filterStartDate && $firstTransactionDate <= $filterEndDate) {
-                        // This is a first-time payment in our range!
                         $conversions[] = [
                             'businessId' => $businessId,
                             'businessName' => $firstTransaction['businessName'] ?? 'N/A',
@@ -228,6 +230,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         $totalRevenue += floatval($firstTransaction['amount'] ?? 0);
                         $totalTransactionCount++;
                     }
+                    // Check if first transaction is BEFORE the date range (potential renewal customer)
+                    else if ($firstTransactionDate < $filterStartDate) {
+                        // This business had their first payment before our range
+                        // Now check if they have any payments WITHIN our range (renewals)
+                        foreach ($transactions as $transaction) {
+                            try {
+                                $transactionDate = new DateTime($transaction['billingDate']);
+                                
+                                // If this transaction is within our date range, it's a RENEWAL
+                                if ($transactionDate >= $filterStartDate && $transactionDate <= $filterEndDate) {
+                                    $renewals[] = [
+                                        'businessId' => $businessId,
+                                        'businessName' => $transaction['businessName'] ?? 'N/A',
+                                        'email' => $transaction['email'] ?? 'N/A',
+                                        'phone' => $transaction['phoneNumber'] ?? 'N/A',
+                                        'paymentDate' => $transaction['billingDate'],
+                                        'amount' => floatval($transaction['amount'] ?? 0),
+                                        'paymentMethod' => $transaction['paymentMethod'] ?? 'N/A',
+                                        'status' => $transaction['status'] ?? 'N/A',
+                                        'currency' => $transaction['currency'] ?? 'KSH',
+                                        'totalPayments' => count($transactions),
+                                        'firstPaymentDate' => $firstTransaction['billingDate']
+                                    ];
+                                    
+                                    $totalRenewalRevenue += floatval($transaction['amount'] ?? 0);
+                                    $totalRenewalTransactionCount++;
+                                }
+                            } catch (Exception $e) {
+                                continue;
+                            }
+                        }
+                    }
                 } catch (Exception $e) {
                     // Skip invalid dates
                     continue;
@@ -241,16 +275,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 return $dateB <=> $dateA;
             });
             
+            // Sort renewals by date (newest first)
+            usort($renewals, function($a, $b) {
+                $dateA = new DateTime($a['paymentDate']);
+                $dateB = new DateTime($b['paymentDate']);
+                return $dateB <=> $dateA;
+            });
+            
             $avgPayment = $totalTransactionCount > 0 ? round($totalRevenue / $totalTransactionCount, 2) : 0;
+            $avgRenewalPayment = $totalRenewalTransactionCount > 0 ? round($totalRenewalRevenue / $totalRenewalTransactionCount, 2) : 0;
             
             $response = [
                 'success' => true,
+                // First-Time Customer Data
                 'totalConversions' => count($conversions),
                 'totalRevenue' => $totalRevenue,
                 'avgPayment' => $avgPayment,
                 'totalTransactions' => $totalTransactionCount,
-                'dateRange' => $filterStartDate->format('Y-m-d') . ' to ' . $filterEndDate->format('Y-m-d'),
-                'conversions' => $conversions
+                'conversions' => $conversions,
+                // Renewal Data
+                'totalRenewals' => count($renewals),
+                'totalRenewalRevenue' => $totalRenewalRevenue,
+                'avgRenewalPayment' => $avgRenewalPayment,
+                'totalRenewalTransactions' => $totalRenewalTransactionCount,
+                'renewals' => $renewals,
+                // Common
+                'dateRange' => $filterStartDate->format('Y-m-d') . ' to ' . $filterEndDate->format('Y-m-d')
             ];
             
             echo json_encode($response);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>First Time Payment Analyzer</title>
+    <title>Payment Analyzer - First Time & Renewals</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -43,6 +43,36 @@
             gap: 15px;
             align-items: end;
         }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .tab {
+            padding: 12px 24px;
+            background-color: #f8f9fa;
+            border: none;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .tab:hover {
+            background-color: #e9ecef;
+        }
+        .tab.active {
+            background-color: #007BFF;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
         label {
             display: block;
             margin-top: 10px;
@@ -78,9 +108,15 @@
         .success-btn {
             background-color: #28a745;
         }
+        .success-btn:hover {
+            background-color: #218838;
+        }
         .warning-btn {
             background-color: #ffc107;
             color: #212529;
+        }
+        .warning-btn:hover {
+            background-color: #e0a800;
         }
         .stats-grid {
             display: grid;
@@ -95,11 +131,17 @@
             border-left: 4px solid #007BFF;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .stat-card.renewal {
+            border-left-color: #28a745;
+        }
         .stat-number {
             font-size: 28px;
             font-weight: bold;
             color: #007BFF;
             margin-bottom: 5px;
+        }
+        .stat-card.renewal .stat-number {
+            color: #28a745;
         }
         .stat-label {
             color: #666;
@@ -171,6 +213,10 @@
             background-color: #d1ecf1;
             color: #0c5460;
         }
+        .badge-renewal {
+            background-color: #d4edda;
+            color: #155724;
+        }
         .export-buttons {
             display: flex;
             gap: 10px;
@@ -181,7 +227,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>First Time Payment Analyzer</h1>
+        <h1>Payment Analyzer - First Time & Renewals</h1>
         
         <!-- Login Section -->
         <div id="loginSection" class="login-section">
@@ -193,7 +239,7 @@
         <!-- Analysis Section -->
         <div id="analysisSection" class="analysis-section">
             <div class="filter-section">
-                <h3>Select Time Period for First-Time Payment Analysis</h3>
+                <h3>Select Time Period for Payment Analysis</h3>
                 <form id="analysisForm">
                     <div class="filter-row">
                         <div>
@@ -219,7 +265,7 @@
                         </div>
                         
                         <div>
-                            <button type="submit" id="analyzeBtn">Analyze First-Time Payments</button>
+                            <button type="submit" id="analyzeBtn">Analyze Payments</button>
                         </div>
                     </div>
                 </form>
@@ -227,56 +273,127 @@
 
             <div id="messageArea"></div>
 
-            <!-- Statistics Section -->
-            <div id="statsSection" style="display: none;">
-                <h3>First-Time Payment Summary</h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalConversions">0</div>
-                        <div class="stat-label">First-Time Customers</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalRevenue">KSH 0</div>
-                        <div class="stat-label">Revenue from New Customers</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="avgPayment">KSH 0</div>
-                        <div class="stat-label">Average First Payment</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalTransactions">0</div>
-                        <div class="stat-label">Total Transactions</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Export Section -->
-            <div id="exportSection" style="display: none;">
-                <h3>Export Options</h3>
+            <!-- Combined Export Section -->
+            <div id="combinedExportSection" style="display: none;">
+                <h3>📊 Export Complete Report (First-Time + Renewals)</h3>
                 <div class="export-buttons">
-                    <button onclick="exportToCSV()" class="success-btn">Export to CSV/Excel</button>
-                    <button onclick="exportToPDF()" class="warning-btn">Export to PDF</button>
+                    <button onclick="exportCombinedToCSV()" class="success-btn">📥 Export All to CSV/Excel</button>
+                    <button onclick="exportCombinedToPDF()" class="warning-btn">📄 Export All to PDF</button>
                 </div>
             </div>
 
-            <!-- Results Table -->
-            <div id="resultsSection" style="display: none;">
-                <h3>First-Time Payment Customers</h3>
-                <div class="table-container">
-                    <table id="resultsTable">
-                        <thead>
-                            <tr>
-                                <th>Business Name</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>First Payment Date</th>
-                                <th>Amount (KSH)</th>
-                                <th>Payment Method</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="resultsTableBody"></tbody>
-                    </table>
+            <!-- Tabs for First-Time and Renewals -->
+            <div id="tabsSection" style="display: none;">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('firstTime')">First-Time Customers</button>
+                    <button class="tab" onclick="switchTab('renewals')">Renewals</button>
+                </div>
+
+                <!-- First-Time Tab Content -->
+                <div id="firstTimeTab" class="tab-content active">
+                    <div id="firstTimeStatsSection">
+                        <h3>First-Time Payment Summary</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-number" id="totalConversions">0</div>
+                                <div class="stat-label">First-Time Customers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="totalRevenue">KSH 0</div>
+                                <div class="stat-label">Revenue from New Customers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="avgPayment">KSH 0</div>
+                                <div class="stat-label">Average First Payment</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="totalTransactions">0</div>
+                                <div class="stat-label">Total Transactions</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="firstTimeExportSection">
+                        <h3>Export First-Time Customers</h3>
+                        <div class="export-buttons">
+                            <button onclick="exportToCSV('firstTime')" class="success-btn">Export to CSV/Excel</button>
+                            <button onclick="exportToPDF('firstTime')" class="warning-btn">Export to PDF</button>
+                        </div>
+                    </div>
+
+                    <div id="firstTimeResultsSection">
+                        <h3>First-Time Payment Customers</h3>
+                        <div class="table-container">
+                            <table id="firstTimeResultsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Business Name</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>First Payment Date</th>
+                                        <th>Amount (KSH)</th>
+                                        <th>Payment Method</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="firstTimeResultsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Renewals Tab Content -->
+                <div id="renewalsTab" class="tab-content">
+                    <div id="renewalsStatsSection">
+                        <h3>Renewals Summary</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card renewal">
+                                <div class="stat-number" id="totalRenewals">0</div>
+                                <div class="stat-label">Renewal Customers</div>
+                            </div>
+                            <div class="stat-card renewal">
+                                <div class="stat-number" id="totalRenewalRevenue">KSH 0</div>
+                                <div class="stat-label">Revenue from Renewals</div>
+                            </div>
+                            <div class="stat-card renewal">
+                                <div class="stat-number" id="avgRenewalPayment">KSH 0</div>
+                                <div class="stat-label">Average Renewal Payment</div>
+                            </div>
+                            <div class="stat-card renewal">
+                                <div class="stat-number" id="totalRenewalTransactions">0</div>
+                                <div class="stat-label">Total Renewal Transactions</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="renewalsExportSection">
+                        <h3>Export Renewals</h3>
+                        <div class="export-buttons">
+                            <button onclick="exportToCSV('renewals')" class="success-btn">Export to CSV/Excel</button>
+                            <button onclick="exportToPDF('renewals')" class="warning-btn">Export to PDF</button>
+                        </div>
+                    </div>
+
+                    <div id="renewalsResultsSection">
+                        <h3>Renewal Customers</h3>
+                        <div class="table-container">
+                            <table id="renewalsResultsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Business Name</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>Payment Date</th>
+                                        <th>Amount (KSH)</th>
+                                        <th>Payment Method</th>
+                                        <th>Status</th>
+                                        <th>Payments Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="renewalsResultsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -285,9 +402,26 @@
     <script>
         let adminToken = null;
         let currentAnalysisData = null;
+        let currentActiveTab = 'firstTime';
 
         function showMessage(message, type = 'info') {
             document.getElementById('messageArea').innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function switchTab(tabName) {
+            currentActiveTab = tabName;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Tab').classList.add('active');
         }
 
         document.getElementById('filterType').addEventListener('change', function() {
@@ -347,7 +481,7 @@
                 return;
             }
 
-            showMessage('Analyzing first-time payments...', 'info');
+            showMessage('Analyzing payments...', 'info');
             
             const formData = new FormData(event.target);
             const filterData = Object.fromEntries(formData.entries());
@@ -370,7 +504,7 @@
                 if (data.success) {
                     currentAnalysisData = data;
                     displayResults(data);
-                    showMessage(`Analysis complete! Found ${data.totalConversions} first-time customers.`, 'success');
+                    showMessage(`Analysis complete! Found ${data.totalConversions} first-time customers and ${data.totalRenewals} renewals.`, 'success');
                 } else {
                     showMessage('Analysis failed: ' + (data.error || 'Unknown error'), 'error');
                 }
@@ -382,16 +516,17 @@
         });
 
         function displayResults(data) {
+            // Display First-Time Customers
             document.getElementById('totalConversions').textContent = data.totalConversions;
             document.getElementById('totalRevenue').textContent = `KSH ${data.totalRevenue.toLocaleString()}`;
             document.getElementById('avgPayment').textContent = `KSH ${data.avgPayment.toLocaleString()}`;
             document.getElementById('totalTransactions').textContent = data.totalTransactions;
 
-            const tbody = document.getElementById('resultsTableBody');
-            tbody.innerHTML = '';
+            const firstTimeTbody = document.getElementById('firstTimeResultsTableBody');
+            firstTimeTbody.innerHTML = '';
             
             data.conversions.forEach(conv => {
-                const row = tbody.insertRow();
+                const row = firstTimeTbody.insertRow();
                 row.innerHTML = `
                     <td>${conv.businessName}</td>
                     <td>${conv.email}</td>
@@ -403,43 +538,100 @@
                 `;
             });
 
-            document.getElementById('statsSection').style.display = 'block';
-            document.getElementById('exportSection').style.display = 'block';
-            document.getElementById('resultsSection').style.display = 'block';
+            // Display Renewals
+            document.getElementById('totalRenewals').textContent = data.totalRenewals;
+            document.getElementById('totalRenewalRevenue').textContent = `KSH ${data.totalRenewalRevenue.toLocaleString()}`;
+            document.getElementById('avgRenewalPayment').textContent = `KSH ${data.avgRenewalPayment.toLocaleString()}`;
+            document.getElementById('totalRenewalTransactions').textContent = data.totalRenewalTransactions;
+
+            const renewalsTbody = document.getElementById('renewalsResultsTableBody');
+            renewalsTbody.innerHTML = '';
+            
+            data.renewals.forEach(renewal => {
+                const row = renewalsTbody.insertRow();
+                row.innerHTML = `
+                    <td>${renewal.businessName}</td>
+                    <td>${renewal.email}</td>
+                    <td>${renewal.phone}</td>
+                    <td>${new Date(renewal.paymentDate).toLocaleString()}</td>
+                    <td>${renewal.amount.toLocaleString()}</td>
+                    <td><span class="badge badge-info">${renewal.paymentMethod}</span></td>
+                    <td><span class="badge badge-success">${renewal.status}</span></td>
+                    <td><span class="badge badge-renewal">${renewal.totalPayments}</span></td>
+                `;
+            });
+
+            document.getElementById('tabsSection').style.display = 'block';
         }
 
-        function exportToCSV() {
+        function exportToCSV(type) {
             if (!currentAnalysisData) {
                 showMessage('No data to export', 'error');
                 return;
             }
 
-            let csv = 'Business Name,Email,Phone,First Payment Date,Amount (KSH),Payment Method,Status\n';
+            let csv = '';
+            let filename = '';
             
-            currentAnalysisData.conversions.forEach(conv => {
-                csv += `"${conv.businessName}","${conv.email}","${conv.phone}","${new Date(conv.firstPaymentDate).toLocaleString()}","${conv.amount}","${conv.paymentMethod}","${conv.status}"\n`;
-            });
+            if (type === 'firstTime') {
+                csv = 'Business Name,Email,Phone,First Payment Date,Amount (KSH),Payment Method,Status\n';
+                currentAnalysisData.conversions.forEach(conv => {
+                    csv += `"${conv.businessName}","${conv.email}","${conv.phone}","${new Date(conv.firstPaymentDate).toLocaleString()}","${conv.amount}","${conv.paymentMethod}","${conv.status}"\n`;
+                });
+                filename = `first_time_customers_${new Date().toISOString().split('T')[0]}.csv`;
+            } else {
+                csv = 'Business Name,Email,Phone,Payment Date,Amount (KSH),Payment Method,Status,Total Payments\n';
+                currentAnalysisData.renewals.forEach(renewal => {
+                    csv += `"${renewal.businessName}","${renewal.email}","${renewal.phone}","${new Date(renewal.paymentDate).toLocaleString()}","${renewal.amount}","${renewal.paymentMethod}","${renewal.status}","${renewal.totalPayments}"\n`;
+                });
+                filename = `renewals_${new Date().toISOString().split('T')[0]}.csv`;
+            }
 
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `first_time_conversions_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = filename;
             a.click();
             window.URL.revokeObjectURL(url);
         }
 
-        function exportToPDF() {
+        function exportToPDF(type) {
             if (!currentAnalysisData) {
                 showMessage('No data to export', 'error');
                 return;
             }
 
             const printWindow = window.open('', '_blank');
+            let content = '';
+            let title = '';
+            
+            if (type === 'firstTime') {
+                title = 'First-Time Customers Report';
+                content = `
+                    <div class="stats">
+                        <div class="stat"><strong>First-Time Customers:</strong> ${currentAnalysisData.totalConversions}</div>
+                        <div class="stat"><strong>Total Revenue:</strong> KSH ${currentAnalysisData.totalRevenue.toLocaleString()}</div>
+                        <div class="stat"><strong>Avg Payment:</strong> KSH ${currentAnalysisData.avgPayment.toLocaleString()}</div>
+                    </div>
+                    ${document.getElementById('firstTimeResultsSection').innerHTML}
+                `;
+            } else {
+                title = 'Renewals Report';
+                content = `
+                    <div class="stats">
+                        <div class="stat"><strong>Renewal Customers:</strong> ${currentAnalysisData.totalRenewals}</div>
+                        <div class="stat"><strong>Total Revenue:</strong> KSH ${currentAnalysisData.totalRenewalRevenue.toLocaleString()}</div>
+                        <div class="stat"><strong>Avg Payment:</strong> KSH ${currentAnalysisData.avgRenewalPayment.toLocaleString()}</div>
+                    </div>
+                    ${document.getElementById('renewalsResultsSection').innerHTML}
+                `;
+            }
+
             printWindow.document.write(`
                 <html>
                 <head>
-                    <title>First-Time Payment Report</title>
+                    <title>${title}</title>
                     <style>
                         body { font-family: Arial, sans-serif; margin: 20px; }
                         h1 { color: #333; }
@@ -448,18 +640,14 @@
                         th { background-color: #f4f4f4; }
                         .stats { margin: 20px 0; }
                         .stat { display: inline-block; margin-right: 30px; }
+                        .badge { padding: 2px 6px; border-radius: 8px; font-size: 10px; }
                     </style>
                 </head>
                 <body>
-                    <h1>First-Time Payment Report</h1>
+                    <h1>${title}</h1>
                     <p>Generated: ${new Date().toLocaleString()}</p>
                     <p>Period: ${currentAnalysisData.dateRange}</p>
-                    <div class="stats">
-                        <div class="stat"><strong>First-Time Customers:</strong> ${currentAnalysisData.totalConversions}</div>
-                        <div class="stat"><strong>Total Revenue:</strong> KSH ${currentAnalysisData.totalRevenue.toLocaleString()}</div>
-                        <div class="stat"><strong>Avg Payment:</strong> KSH ${currentAnalysisData.avgPayment.toLocaleString()}</div>
-                    </div>
-                    ${document.getElementById('resultsSection').innerHTML}
+                    ${content}
                 </body>
                 </html>
             `);
