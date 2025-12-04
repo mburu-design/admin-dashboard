@@ -222,6 +222,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $package = $subscription['Package'] ?? [];
                 $packageName = $package['name'] ?? 'Unknown';
                 $billingHistories = $subscription['BillingHistories'] ?? [];
+
+                if($business['packageId'] >1) continue;
+
                 
                 // Track packages
                 if (!in_array($packageName, $allPackages) && $packageName !== 'Unknown') {
