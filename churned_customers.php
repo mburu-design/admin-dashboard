@@ -218,14 +218,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $businessId = $subscription['business_id'] ?? '';
                 if (empty($businessId)) continue;
                 
-                
                 $business = $subscription['Business'] ?? [];
                 $package = $subscription['Package'] ?? [];
                 $packageName = $package['name'] ?? 'Unknown';
                 $billingHistories = $subscription['BillingHistories'] ?? [];
-               
-                // if($business['packageId'] >1)
-                //     continue;
+                
                 // Track packages
                 if (!in_array($packageName, $allPackages) && $packageName !== 'Unknown') {
                     $allPackages[] = $packageName;
@@ -263,7 +260,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 if (empty($billingHistories)) {
                     continue;
                 }
-                if
+                
                 
                 // Sort billing histories by date (oldest first)
                 usort($billingHistories, function($a, $b) {
