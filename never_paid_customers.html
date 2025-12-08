@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Never Paid Customers Analysis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        h1 {
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .login-section {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        .login-section h2 {
+            margin-top: 0;
+            font-size: 20px;
+        }
+        .analysis-section {
+            display: none;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-primary {
+            background-color: #4361ee;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #3a56d4;
+        }
+        .btn-success {
+            background-color: #2ec4b6;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #25a99d;
+        }
+        .btn-warning {
+            background-color: #ff9f1c;
+            color: white;
+        }
+        .btn-warning:hover {
+            background-color: #e88f19;
+        }
+        .btn-danger {
+            background-color: #e63946;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #d32f3d;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-login {
+            background-color: white;
+            color: #f5576c;
+        }
+        .btn-login:hover {
+            background-color: #f0f0f0;
+        }
+        .btn-test {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.4);
+        }
+        .btn-test:hover {
+            background-color: rgba(255,255,255,0.3);
+        }
+        .message {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .message.info {
+            background-color: #e7f3ff;
+            color: #0c5aa6;
+            border-left: 4px solid #0c5aa6;
+        }
+        .message.success {
+            background-color: #e6f9f0;
+            color: #0d7a4d;
+            border-left: 4px solid #0d7a4d;
+        }
+        .message.error {
+            background-color: #fee;
+            color: #c0392b;
+            border-left: 4px solid #c0392b;
+        }
+        .message.warning {
+            background-color: #fff8e6;
+            color: #b8860b;
+            border-left: 4px solid #b8860b;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 25px;
+            border-radius: 12px;
+            border-left: 5px solid #4361ee;
+            transition: transform 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+        .stat-card.warning {
+            border-left-color: #ff9f1c;
+        }
+        .stat-card.danger {
+            border-left-color: #e63946;
+        }
+        .stat-card.success {
+            border-left-color: #2ec4b6;
+        }
+        .stat-card.info {
+            border-left-color: #4361ee;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px 0 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .section-header h3 {
+            margin: 0;
+            color: #1a1a2e;
+            font-size: 18px;
+        }
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background-color: #f8f9fa;
+            color: #1a1a2e;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        tr:hover {
+            background-color: #fff8f8;
+        }
+        .badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-danger {
+            background-color: #fee;
+            color: #c0392b;
+        }
+        .badge-warning {
+            background-color: #fff8e6;
+            color: #b8860b;
+        }
+        .badge-success {
+            background-color: #e6f9f0;
+            color: #0d7a4d;
+        }
+        .badge-info {
+            background-color: #e7f3ff;
+            color: #0c5aa6;
+        }
+        .expiry-days {
+            font-weight: 600;
+        }
+        .expiry-days.recent {
+            color: #ff9f1c;
+        }
+        .expiry-days.old {
+            color: #e63946;
+        }
+        .insights-section {
+            background: linear-gradient(135deg, #ffe6f0 0%, #ffd4e5 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            border-left: 5px solid #f5576c;
+        }
+        .insights-section h4 {
+            margin-top: 0;
+            color: #1a1a2e;
+            font-size: 16px;
+        }
+        .insights-section ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .insights-section li {
+            margin-bottom: 8px;
+            color: #555;
+        }
+        .filter-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+            font-size: 13px;
+        }
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #4361ee;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .loading-spinner {
+            text-align: center;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #f5576c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #4361ee;
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .stat-number {
+                font-size: 24px;
+            }
+            th, td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Analyzing never paid customers...</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <a href="subscription_analyzer.html" class="back-link">← Back to Subscription Analyzer</a>
+        
+        <h1>Never Paid Customers Analysis</h1>
+        <p class="subtitle">Identify customers who joined, used the system, but never made any payment and their subscription has expired</p>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="login-section">
+            <h2>Admin Authentication</h2>
+            <p style="margin-bottom: 20px; opacity: 0.9;">Login to access never paid customers data</p>
+            <div class="btn-group">
+                <button onclick="testPHP()" class="btn-test">Test Connection</button>
+                <button onclick="adminLogin()" id="loginBtn" class="btn-login">Login as Admin</button>
+            </div>
+            <div id="loginStatus"></div>
+        </div>
+
+        <!-- Analysis Section -->
+        <div id="analysisSection" class="analysis-section">
+            
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="expiredPeriod">Expiry Period Filter</label>
+                        <select id="expiredPeriod">
+                            <option value="all">All Expired Subscriptions</option>
+                            <option value="7">Expired in Last 7 Days</option>
+                            <option value="30">Expired in Last 30 Days</option>
+                            <option value="60">Expired in Last 60 Days</option>
+                            <option value="90">Expired in Last 90 Days</option>
+                            <option value="180">Expired in Last 6 Months</option>
+                            <option value="365">Expired in Last Year</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sortBy">Sort By</label>
+                        <select id="sortBy">
+                            <option value="expired_date_desc">Most Recent Expiry</option>
+                            <option value="expired_date_asc">Oldest Expiry</option>
+                            <option value="days_used_desc">Most Days Used</option>
+                            <option value="days_used_asc">Least Days Used</option>
+                            <option value="name_asc">Name (A-Z)</option>
+                            <option value="name_desc">Name (Z-A)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 0;">
+                        <label>&nbsp;</label>
+                        <button onclick="analyzeNeverPaid()" class="btn-primary" id="analyzeBtn">Analyze</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="messageArea"></div>
+
+            <!-- Stats Section -->
+            <div id="statsSection" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card danger">
+                        <div class="stat-number" id="totalNeverPaid">0</div>
+                        <div class="stat-label">Never Paid Customers</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-number" id="avgDaysUsed">0 days</div>
+                        <div class="stat-label">Avg. Days Used</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-number" id="avgDaysSinceExpiry">0 days</div>
+                        <div class="stat-label">Avg. Days Since Expiry</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-number" id="recentExpiries">0</div>
+                        <div class="stat-label">Expired Last 30 Days</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insights Section -->
+            <div id="insightsSection" class="insights-section" style="display: none;">
+                <h4>💡 Key Insights</h4>
+                <ul id="insightsList">
+                </ul>
+            </div>
+
+            <!-- Export & Results -->
+            <div id="resultsSection" style="display: none;">
+                <div class="section-header">
+                    <h3>Never Paid Customers List</h3>
+                    <div class="export-buttons">
+                        <button onclick="exportToExcel()" class="btn-success">Export Excel</button>
+                        <button onclick="exportToPDF()" class="btn-danger">Export PDF</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Business Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Packages Used</th>
+                                <th>Total Subscriptions</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Days Used</th>
+                                <th>Days Since Expiry</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let adminToken = null;
+        let neverPaidData = null;
+
+        function showMessage(message, type = 'info') {
+            const messageArea = document.getElementById('messageArea');
+            messageArea.innerHTML = `<div class="message ${type}">${message}</div>`;
+        }
+
+        function clearMessages() {
+            document.getElementById('messageArea').innerHTML = '';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        async function testPHP() {
+            const loginStatus = document.getElementById('loginStatus');
+            loginStatus.innerHTML = '<div class="message info" style="margin-top: 15px;">Testing PHP connection...</div>';
+            
+            try {
+                const response = await fetch('never_paid_customers.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'test' })
+                });
+
+                const responseText = await response.text();
+                
+                try {
+                    const data = JSON.parse(responseText);
+                    if (data.success) {
+                        loginStatus.innerHTML = '<div class="message success" style="margin-top: 15px;">✓ PHP connection successful!</div>';
+                    } else {
+                        loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">PHP Error: ' + data.error + '</div>';
+                    }
+                } catch (e) {
+                    loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Invalid response: ' + responseText.substring(0, 200) + '</div>';
+                }
+            } catch (error) {
+                loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Connection error: ' + error.message + '</div>';
+            }
+        }
+
+        async function adminLogin() {
+            const loginBtn = document.getElementById('loginBtn');
+            const loginStatus = document.getElementById('loginStatus');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            
+            try {
+                const response = await fetch('never_paid_customers.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'login' })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success && data.token) {
+                    adminToken = data.token;
+                    loginStatus.innerHTML = '<div class="message success" style="margin-top: 15px;">✓ Login successful!</div>';
+                    
+                    setTimeout(() => {
+                        document.getElementById('loginSection').style.display = 'none';
+                        document.getElementById('analysisSection').style.display = 'block';
+                        analyzeNeverPaid();
+                    }, 500);
+                } else {
+                    loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Login failed: ' + (data.error || 'Unknown error') + '</div>';
+                }
+            } catch (error) {
+                loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Login error: ' + error.message + '</div>';
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login as Admin';
+            }
+        }
+
+        async function analyzeNeverPaid() {
+            if (!adminToken) {
+                showMessage('Please login first', 'error');
+                return;
+            }
+
+            clearMessages();
+            showLoading(true);
+            document.getElementById('analyzeBtn').disabled = true;
+
+            const expiredPeriod = document.getElementById('expiredPeriod').value;
+            const sortBy = document.getElementById('sortBy').value;
+
+            try {
+                const response = await fetch('never_paid_customers.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'analyze',
+                        token: adminToken,
+                        expiredPeriod: expiredPeriod,
+                        sortBy: sortBy
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    neverPaidData = data;
+                    displayResults(data);
+                    showMessage(`Analysis complete! Found ${data.totalNeverPaid} customers who never paid.`, 'success');
+                } else {
+                    showMessage('Analysis failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showMessage('Analysis error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            // Update stats
+            document.getElementById('totalNeverPaid').textContent = data.totalNeverPaid || 0;
+            document.getElementById('avgDaysUsed').textContent = (data.avgDaysUsed || 0) + ' days';
+            document.getElementById('avgDaysSinceExpiry').textContent = (data.avgDaysSinceExpiry || 0) + ' days';
+            document.getElementById('recentExpiries').textContent = data.recentExpiries || 0;
+
+            // Generate insights
+            generateInsights(data);
+
+            // Populate table
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = '';
+
+            if (data.customers && data.customers.length > 0) {
+                data.customers.forEach(customer => {
+                    const expiryClass = customer.daysSinceExpiry <= 30 ? 'recent' : 'old';
+                    
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${escapeHtml(customer.businessName)}</strong></td>
+                            <td>${escapeHtml(customer.email)}</td>
+                            <td>${escapeHtml(customer.phone)}</td>
+                            <td><span class="badge badge-info">${escapeHtml(customer.packages)}</span></td>
+                            <td>${customer.totalSubscriptions}</td>
+                            <td>${customer.subscriptionStart}</td>
+                            <td>${customer.subscriptionEnd}</td>
+                            <td><strong>${customer.daysUsed} days</strong></td>
+                            <td><span class="expiry-days ${expiryClass}">${customer.daysSinceExpiry} days ago</span></td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: #666;">No never paid customers found matching your criteria</td></tr>';
+            }
+
+            // Show sections
+            document.getElementById('statsSection').style.display = 'block';
+            document.getElementById('insightsSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function generateInsights(data) {
+            const insights = [];
+            
+            if (data.totalNeverPaid > 0) {
+                insights.push(`<strong>${data.totalNeverPaid}</strong> customers joined and used the system but never made a payment before their subscription expired.`);
+                
+                if (data.recentExpiries > 0) {
+                    const recentPercent = ((data.recentExpiries / data.totalNeverPaid) * 100).toFixed(1);
+                    insights.push(`<strong>${data.recentExpiries}</strong> customers (${recentPercent}%) expired in the last 30 days - these are high-priority for conversion campaigns.`);
+                }
+                
+                if (data.avgDaysUsed > 0) {
+                    if (data.avgDaysUsed < 14) {
+                        insights.push(`Average usage of <strong>${data.avgDaysUsed} days</strong> suggests customers may be abandoning early. Consider improving onboarding or offering incentives.`);
+                    } else {
+                        insights.push(`Average usage of <strong>${data.avgDaysUsed} days</strong> indicates users engaged with the system. They may need a compelling reason to convert to paid.`);
+                    }
+                }
+                
+                insights.push(`These customers represent <strong>lost conversion opportunities</strong>. Consider targeted win-back campaigns or special offers to convert them to paying customers.`);
+            } else {
+                insights.push('Great news! No expired free users found in the selected period, or all users who used the system eventually converted to paid.');
+            }
+
+            const insightsList = document.getElementById('insightsList');
+            insightsList.innerHTML = insights.map(i => `<li>${i}</li>`).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || 'N/A';
+            return div.innerHTML;
+        }
+
+        function exportToExcel() {
+            if (!neverPaidData || !neverPaidData.customers || neverPaidData.customers.length === 0) {
+                showMessage('No data to export', 'error');
+                return;
+            }
+
+            const worksheetData = [
+                ['Business Name', 'Email', 'Phone', 'Packages Used', 'Total Subscriptions', 'Start Date', 'End Date', 'Days Used', 'Days Since Expiry']
+            ];
+            
+            neverPaidData.customers.forEach(c => {
+                worksheetData.push([
+                    c.businessName,
+                    c.email,
+                    c.phone,
+                    c.packages,
+                    c.totalSubscriptions,
+                    c.subscriptionStart,
+                    c.subscriptionEnd,
+                    c.daysUsed,
+                    c.daysSinceExpiry
+                ]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+            
+            // Set column widths
+            ws['!cols'] = [
+                {wch: 25}, {wch: 30}, {wch: 15}, {wch: 20}, 
+                {wch: 15}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 15}
+            ];
+            
+            XLSX.utils.book_append_sheet(wb, ws, "Never Paid Customers");
+            XLSX.writeFile(wb, `never_paid_customers_${new Date().toISOString().split('T')[0]}.xlsx`);
+            
+            showMessage('Excel file downloaded successfully!', 'success');
+        }
+
+        function exportToPDF() {
+            if (!neverPaidData || !neverPaidData.customers || neverPaidData.customers.length === 0) {
+                showMessage('No data to export', 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4');
+            
+            // Title
+            doc.setFontSize(18);
+            doc.text('Never Paid Customers Report', 14, 15);
+            
+            // Date
+            doc.setFontSize(10);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+            
+            // Stats
+            doc.setFontSize(12);
+            doc.text('Summary Statistics:', 14, 32);
+            doc.setFontSize(10);
+            doc.text(`Total Never Paid: ${neverPaidData.totalNeverPaid}`, 14, 38);
+            doc.text(`Avg. Days Used: ${neverPaidData.avgDaysUsed} days`, 14, 44);
+            doc.text(`Avg. Days Since Expiry: ${neverPaidData.avgDaysSinceExpiry} days`, 14, 50);
+            doc.text(`Recent Expiries (30 days): ${neverPaidData.recentExpiries}`, 14, 56);
+            
+            // Table
+            const tableData = neverPaidData.customers.map(c => [
+                c.businessName,
+                c.email,
+                c.phone,
+                c.packages,
+                c.totalSubscriptions,
+                c.subscriptionStart,
+                c.subscriptionEnd,
+                c.daysUsed,
+                c.daysSinceExpiry
+            ]);
+            
+            doc.autoTable({
+                startY: 65,
+                head: [['Business Name', 'Email', 'Phone', 'Packages', 'Subs', 'Start', 'End', 'Days Used', 'Days Expired']],
+                body: tableData,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [245, 87, 108] },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 40 },
+                    2: { cellWidth: 25 },
+                    3: { cellWidth: 30 },
+                    4: { cellWidth: 15 },
+                    5: { cellWidth: 22 },
+                    6: { cellWidth: 22 },
+                    7: { cellWidth: 20 },
+                    8: { cellWidth: 20 }
+                }
+            });
+            
+            doc.save(`never_paid_customers_${new Date().toISOString().split('T')[0]}.pdf`);
+            showMessage('PDF file downloaded successfully!', 'success');
+        }
+    </script>
