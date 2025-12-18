@@ -115,7 +115,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         // Handle analyze action
         if ($action === 'analyze') {
+            // Get token from request body or Authorization header
             $token = $input['token'] ?? '';
+            
+            // If no token in body, check Authorization header
+            if (empty($token)) {
+                $headers = getallheaders();
+                $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+                if (strpos($authHeader, 'Bearer ') === 0) {
+                    $token = substr($authHeader, 7); // Remove 'Bearer ' prefix
+                }
+            }
+            
             $expiredPeriod = $input['expiredPeriod'] ?? 'all';
             $sortBy = $input['sortBy'] ?? 'expired_date_desc';
             

@@ -107,6 +107,13 @@
   - Ensure error messages don't reveal sensitive information
   - _Requirements: 4.2, 4.3, 4.5, 7.2, 7.3_
 
+- [x] 6.3 Fix live server deployment issues
+  - Updated auth-manager.js to handle token in both header and body
+  - Updated all PHP backend files to accept JWT tokens from Authorization header
+  - Fixed blank page issues when fetching data
+  - Created auth-test-simple.html for testing authentication flow
+  - _Requirements: 6.1, 6.2, 6.4_
+
 - [ ]* 6.1 Write property test for security features
   - **Property 9: Rate limiting enforcement**
   - **Validates: Requirements 4.3**

@@ -11,7 +11,9 @@ class AuthManager {
         
         // API configuration
         this.apiBaseUrl = 'https://core.myacccuratebook.com';
-        this.useLocalProxy = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        // Auto-detect if running on localhost for development
+        this.useLocalProxy = this.isLocalhost();
     }
 
     /**
@@ -51,9 +53,12 @@ class AuthManager {
             });
 
             console.log('API Response status:', response.status);
+            console.log('API Response headers:', response.headers);
             
             if (!response.ok) {
-                throw new Error(`API request failed with status ${response.status}`);
+                const errorText = await response.text();
+                console.log('API Error response:', errorText);
+                throw new Error(`API request failed with status ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
@@ -79,25 +84,17 @@ class AuthManager {
         } catch (error) {
             console.error('Login error:', error);
             
-            // Check if it's a CORS/network error
-            if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-                const corsError = `
-                    CORS Error: Cannot access the API from localhost. 
-                    
-                    Solutions:
-                    1. Deploy your files to the same domain as the API
-                    2. Use a local server with CORS proxy
-                    3. Ask your backend team to add CORS headers
-                    4. Use a browser extension to disable CORS (for development only)
-                    
-                    Technical details: ${error.message}
-                `;
-                this.logSecurityEvent('cors_error', { email: email, error: error.message });
-                return { success: false, error: corsError };
+            // Provide user-friendly error messages
+            let errorMessage = error.message;
+            
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Unable to connect to the authentication server. Please check your internet connection and try again.';
+            } else if (error.message.includes('NetworkError')) {
+                errorMessage = 'Network error occurred. Please check your connection and try again.';
             }
             
             this.logSecurityEvent('login_failure', { email: email, error: error.message });
-            return { success: false, error: error.message };
+            return { success: false, error: errorMessage };
         }
     }
 
@@ -281,6 +278,19 @@ class AuthManager {
     }
 
     /**
+     * Detect if running on localhost for development
+     * @private
+     */
+    isLocalhost() {
+        const hostname = window.location.hostname;
+        return hostname === 'localhost' || 
+               hostname === '127.0.0.1' || 
+               hostname.startsWith('192.168.') ||
+               hostname.startsWith('10.') ||
+               hostname.includes('local');
+    }
+
+    /**
      * Validate email format
      * @private
      */
@@ -312,9 +322,22 @@ class AuthManager {
             ...options.headers
         };
 
+        // For local PHP files that expect token in body, add it to the request body
+        let body = options.body;
+        if (body && typeof body === 'string' && url.endsWith('.php')) {
+            try {
+                const bodyData = JSON.parse(body);
+                bodyData.token = token;
+                body = JSON.stringify(bodyData);
+            } catch (e) {
+                // If body is not JSON, leave it as is
+            }
+        }
+
         return fetch(finalUrl, {
             ...options,
-            headers
+            headers,
+            body
         });
     }
 

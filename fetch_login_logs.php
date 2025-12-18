@@ -1,11 +1,45 @@
 <?php
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    exit(0);
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $baseURL = "https://core.myaccuratebook.com";
-    $startDate = $_POST['startDate'];
-    $endDate = $_POST['endDate'];
+    
+    // Handle both JSON and form data
+    $input = null;
+    $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+    
+    if (strpos($contentType, 'application/json') !== false) {
+        // JSON input
+        $rawInput = file_get_contents('php://input');
+        $input = json_decode($rawInput, true);
+        $startDate = $input['startDate'] ?? '';
+        $endDate = $input['endDate'] ?? '';
+        $token = $input['token'] ?? '';
+        
+        // If no token in body, check Authorization header
+        if (empty($token)) {
+            $headers = getallheaders();
+            $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+            if (strpos($authHeader, 'Bearer ') === 0) {
+                $token = substr($authHeader, 7); // Remove 'Bearer ' prefix
+            }
+        }
+    } else {
+        // Form data
+        $startDate = $_POST['startDate'] ?? '';
+        $endDate = $_POST['endDate'] ?? '';
+        $token = $_POST['token'] ?? '';
+    }
+    
     $logType = "login"; // Fixed to login
     $tokenN = "zWWq5BWO+anUMgWtimvvCguXwU=wAMnzI6grv9WkCFsIdkBydGV4SDZQQHNz";
-    $token = $_POST['token']; // This is the admin token
 
     $apiUrl = "$baseURL/getlogs/query?endDate=$endDate&startDate=$startDate&logType=$logType&token=$token";
 

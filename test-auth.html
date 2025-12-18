@@ -62,16 +62,49 @@
             
             resultDiv.innerHTML = '<div class="message info">Testing login...</div>';
             
+            // First test direct API access
+            try {
+                console.log('Testing direct API access...');
+                const directResponse = await fetch('https://core.myacccuratebook.com/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                console.log('Direct API response status:', directResponse.status);
+                console.log('Direct API response ok:', directResponse.ok);
+                
+                if (directResponse.ok) {
+                    const directData = await directResponse.json();
+                    console.log('Direct API data:', directData);
+                    resultDiv.innerHTML = '<div class="message success">✅ Direct API test successful! Response: ' + JSON.stringify(directData) + '</div>';
+                    return;
+                } else {
+                    const errorText = await directResponse.text();
+                    console.log('Direct API error:', errorText);
+                    resultDiv.innerHTML = '<div class="message error">❌ Direct API failed with status ' + directResponse.status + ': ' + errorText + '</div>';
+                }
+            } catch (directError) {
+                console.log('Direct API error:', directError);
+                resultDiv.innerHTML = '<div class="message error">❌ Direct API error: ' + directError.message + '</div>';
+            }
+            
+            // Then test through auth manager
             try {
                 const result = await window.authManager.login(email, password);
                 
                 if (result.success) {
-                    resultDiv.innerHTML = '<div class="message success">✅ Login successful! User: ' + JSON.stringify(result.user) + '</div>';
+                    resultDiv.innerHTML += '<br><div class="message success">✅ AuthManager login successful! User: ' + JSON.stringify(result.user) + '</div>';
                 } else {
-                    resultDiv.innerHTML = '<div class="message error">❌ Login failed: ' + result.error + '</div>';
+                    resultDiv.innerHTML += '<br><div class="message error">❌ AuthManager login failed: ' + result.error + '</div>';
                 }
             } catch (error) {
-                resultDiv.innerHTML = '<div class="message error">❌ Login error: ' + error.message + '</div>';
+                resultDiv.innerHTML += '<br><div class="message error">❌ AuthManager error: ' + error.message + '</div>';
             }
         }
         

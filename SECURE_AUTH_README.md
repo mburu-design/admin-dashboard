@@ -45,10 +45,11 @@ This will automatically:
 
 ## Backend Setup
 
-The system now uses your production API endpoint:
+The system is configured for live deployment and uses your production API endpoint:
 - **API Endpoint**: `https://core.myacccuratebook.com/admin/login`
 - **Request Format**: `{"email": "user@example.com", "password": "password"}`
 - **Response Format**: `{"message": "Login successful", "token": "JWT_TOKEN"}`
+- **Deployment**: Configured for live server (localhost proxy disabled)
 
 ### Authentication Credentials
 
@@ -57,6 +58,21 @@ Use your actual MyAccurateBook admin credentials:
 - Password: Your admin password
 
 The system will authenticate against your production API and store the JWT token for subsequent requests.
+
+### Environment Configuration
+
+The authentication system automatically detects the environment:
+
+**Live Server (Production):**
+- Direct API calls to `https://core.myacccuratebook.com`
+- No CORS proxy needed (files deployed to live server)
+- JWT token automatically included in all authenticated requests
+
+**Localhost Development:**
+- Uses `api-proxy.php` to handle CORS issues
+- Automatically detected when running on localhost, 127.0.0.1, or local networks
+- Start local server with: `php -S localhost:8000`
+- Access via: `http://localhost:8000/`
 
 ## Security Features
 
@@ -109,16 +125,63 @@ All files now use the secure authentication system with:
 
 ## Troubleshooting
 
+### Current Status (Live Server Deployment)
+
+The authentication system has been updated for live server deployment:
+- ✅ Direct API calls to `https://core.myacccuratebook.com/admin/login`
+- ✅ JWT token handling in both Authorization header and request body
+- ✅ All PHP backend files updated to handle both token methods
+- ✅ CORS issues resolved (no proxy needed on live server)
+
+### Testing the System
+
+**For Localhost Development:**
+1. Start PHP development server: `php -S localhost:8000`
+2. Open `http://localhost:8000/auth-test-simple.html`
+3. The system will automatically use the CORS proxy for API calls
+
+**For Live Server:**
+1. Open `auth-test-simple.html` directly in your browser
+2. The system will make direct API calls (no proxy needed)
+
+**Test Components:**
+- **Direct API Login**: Tests the core API connection
+- **Auth Manager**: Tests the JavaScript authentication wrapper  
+- **Payments API**: Tests authenticated requests to backend
+
 ### Common Issues
 
-1. **Login form not appearing**: Check that `admin-auth-integration.js` is loaded
-2. **Styling issues**: Ensure `admin-auth.css` is loaded and not overridden
-3. **Authentication fails**: Check PHP error logs and ensure `auth/login.php` is accessible
-4. **Rate limiting**: Wait 15 minutes or clear `auth_attempts.json`
+1. **Blank pages when fetching data**: 
+   - **Cause**: Token not being passed correctly to PHP backends
+   - **Solution**: Updated all PHP files to handle JWT tokens from Authorization header
+   - **Test**: Use `auth-test-simple.html` to verify token handling
+
+2. **Login form not appearing**: Check that `admin-auth-integration.js` is loaded
+
+3. **Authentication fails**: 
+   - Check browser console for detailed error messages
+   - Verify credentials are correct for MyAccurateBook admin
+   - Ensure API endpoint `https://core.myacccuratebook.com/admin/login` is accessible
+
+4. **CORS errors on localhost**: 
+   - **Cause**: Browser blocking cross-origin requests to external API
+   - **Solution**: Use PHP development server (`php -S localhost:8000`) and access via `http://localhost:8000/`
+   - **Check**: Verify `api-proxy.php` exists and is accessible
+
+5. **"Unable to connect to authentication server" on localhost**:
+   - **Cause**: System not detecting localhost properly or proxy not working
+   - **Solution**: Ensure you're accessing via `http://localhost:8000/` not `file://`
+   - **Debug**: Check browser console for proxy-related errors
+
+6. **Rate limiting**: Wait 15 minutes or clear `auth_attempts.json`
 
 ### Browser Console
 
-Check the browser console for error messages. The system logs authentication attempts and errors.
+Check the browser console for error messages. The system logs:
+- Authentication attempts and responses
+- API request details and errors
+- Token validation status
+- Backend communication issues
 
 ## Production Deployment
 

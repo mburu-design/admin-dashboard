@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Auth Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007BFF; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .message { margin-top: 15px; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple Authentication Test</h1>
+        
+        <div id="environmentInfo" class="message info" style="margin-bottom: 20px;">
+            <strong>Environment:</strong> <span id="envMode">Detecting...</span><br>
+            <strong>API URL:</strong> <span id="apiUrl">Loading...</span>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" placeholder="Enter your admin email">
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Enter your password">
+        </div>
+        
+        <button onclick="testDirectLogin()">Test Direct API Login</button>
+        <button onclick="testAuthManager()">Test Auth Manager</button>
+        <button onclick="testPaymentsAPI()">Test Payments API</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script src="auth-manager.js"></script>
+    <script>
+        // Show environment info on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const isLocalhost = window.authManager.isLocalhost();
+            const useProxy = window.authManager.useLocalProxy;
+            
+            document.getElementById('envMode').textContent = isLocalhost ? 'Localhost Development' : 'Live Server';
+            document.getElementById('apiUrl').textContent = useProxy ? 
+                'api-proxy.php (CORS Proxy)' : 
+                'https://core.myacccuratebook.com (Direct)';
+        });
+        
+        async function testDirectLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!email || !password) {
+                resultDiv.innerHTML = '<div class="message error">Please enter both email and password</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="message info">Testing direct API login...</div>';
+            
+            try {
+                const response = await fetch('https://core.myacccuratebook.com/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Response data:', data);
+                    resultDiv.innerHTML = '<div class="message success">✅ Direct API login successful!<br>Token: ' + data.token.substring(0, 50) + '...</div>';
+                    
+                    // Store token for testing
+                    window.testToken = data.token;
+                } else {
+                    const errorText = await response.text();
+                    console.log('Error response:', errorText);
+                    resultDiv.innerHTML = '<div class="message error">❌ Direct API login failed: Status ' + response.status + '<br>' + errorText + '</div>';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                resultDiv.innerHTML = '<div class="message error">❌ Login error: ' + error.message + '</div>';
+            }
+        }
+        
+        async function testAuthManager() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!email || !password) {
+                resultDiv.innerHTML = '<div class="message error">Please enter both email and password</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="message info">Testing AuthManager login...</div>';
+            
+            try {
+                const result = await window.authManager.login(email, password);
+                
+                if (result.success) {
+                    resultDiv.innerHTML = '<div class="message success">✅ AuthManager login successful!<br>User: ' + JSON.stringify(result.user) + '</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="message error">❌ AuthManager login failed: ' + result.error + '</div>';
+                }
+            } catch (error) {
+                console.error('AuthManager error:', error);
+                resultDiv.innerHTML = '<div class="message error">❌ AuthManager error: ' + error.message + '</div>';
+            }
+        }
+        
+        async function testPaymentsAPI() {
+            const resultDiv = document.getElementById('result');
+            
+            // Check if we have a token
+            const token = window.authManager ? window.authManager.getAuthToken() : window.testToken;
+            
+            if (!token) {
+                resultDiv.innerHTML = '<div class="message error">❌ No token available. Please login first.</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="message info">Testing payments API with token...</div>';
+            
+            try {
+                const response = await fetch('first_payment_analyzer.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        action: 'analyze',
+                        filterType: 'today'
+                    })
+                });
+                
+                console.log('Payments API response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Payments API data:', data);
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML = '<div class="message success">✅ Payments API test successful!<br>Found ' + data.totalConversions + ' first-time customers and ' + data.totalRenewals + ' renewals.</div>';
+                    } else {
+                        resultDiv.innerHTML = '<div class="message error">❌ Payments API returned error: ' + data.error + '</div>';
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.log('Payments API error:', errorText);
+                    resultDiv.innerHTML = '<div class="message error">❌ Payments API failed: Status ' + response.status + '<br>' + errorText + '</div>';
+                }
+            } catch (error) {
+                console.error('Payments API error:', error);
+                resultDiv.innerHTML = '<div class="message error">❌ Payments API error: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>
+</content>
+</invoke>
