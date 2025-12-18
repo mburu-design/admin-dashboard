@@ -21,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
-    // Get the request data
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
 
@@ -34,7 +33,6 @@ try {
     $action = $data['action'] ?? 'login';
 
     if ($action === 'login') {
-        // Handle login
         $email = $data['email'] ?? '';
         $password = $data['password'] ?? '';
 
@@ -43,7 +41,6 @@ try {
             exit();
         }
 
-        // Make request to the actual API
         $apiUrl = 'https://core.myaccuratebook.com/admin/login';
         $authToken = "zWWq5BWO+anUMgWtimvvCguXwU=wAMnzI6grv9WkCFsIdkBydGV4SDZQQHNz";
 
@@ -103,6 +100,3 @@ try {
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
 }
-?>
-</content>
-</invoke>

@@ -46,7 +46,7 @@ This will automatically:
 ## Backend Setup
 
 The system is configured for live deployment and uses your production API endpoint:
-- **API Endpoint**: `https://core.myacccuratebook.com/admin/login`
+- **API Endpoint**: `https://core.myaccuratebook.com/admin/login`
 - **Request Format**: `{"email": "user@example.com", "password": "password"}`
 - **Response Format**: `{"message": "Login successful", "token": "JWT_TOKEN"}`
 - **Deployment**: Configured for live server (localhost proxy disabled)
@@ -64,7 +64,7 @@ The system will authenticate against your production API and store the JWT token
 The authentication system automatically detects the environment:
 
 **Live Server (Production):**
-- Direct API calls to `https://core.myacccuratebook.com`
+- Direct API calls to `https://core.myaccuratebook.com`
 - No CORS proxy needed (files deployed to live server)
 - JWT token automatically included in all authenticated requests
 
@@ -128,7 +128,7 @@ All files now use the secure authentication system with:
 ### Current Status (Live Server Deployment)
 
 The authentication system has been updated for live server deployment:
-- ✅ Direct API calls to `https://core.myacccuratebook.com/admin/login`
+- ✅ Direct API calls to `https://core.myaccuratebook.com/admin/login`
 - ✅ JWT token handling in both Authorization header and request body
 - ✅ All PHP backend files updated to handle both token methods
 - ✅ CORS issues resolved (no proxy needed on live server)
@@ -161,7 +161,7 @@ The authentication system has been updated for live server deployment:
 3. **Authentication fails**: 
    - Check browser console for detailed error messages
    - Verify credentials are correct for MyAccurateBook admin
-   - Ensure API endpoint `https://core.myacccuratebook.com/admin/login` is accessible
+   - Ensure API endpoint `https://core.myaccuratebook.com/admin/login` is accessible
 
 4. **CORS errors on localhost**: 
    - **Cause**: Browser blocking cross-origin requests to external API
