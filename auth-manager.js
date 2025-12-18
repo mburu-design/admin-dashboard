@@ -49,12 +49,15 @@ class AuthManager {
 
             // Make authentication request to backend
             console.log('Attempting login to API...');
+            console.log('useLocalProxy:', this.useLocalProxy);
+            console.log('hostname:', window.location.hostname);
             
             const apiUrl = this.useLocalProxy 
                 ? 'api-proxy.php?endpoint=admin/login'  // Use local PHP proxy for development
                 : 'live-auth-proxy.php';                // Use live server proxy for production
                 
             console.log('Using API URL:', apiUrl);
+            console.log('Auth Manager Version: 2.0 - Live Proxy Update');
             
             const response = await fetch(apiUrl, {
                 method: 'POST',

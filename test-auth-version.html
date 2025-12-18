@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Version Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .info { background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; padding: 15px; border-radius: 4px; margin: 10px 0; }
+        button { background: #007BFF; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Auth Manager Version Test</h1>
+    
+    <div class="info">
+        <strong>This page tests if the auth-manager.js file is properly updated.</strong><br>
+        If you see "Auth Manager Version: 2.0" in the console, the file is updated.
+    </div>
+    
+    <button onclick="testVersion()">Test Auth Manager Version</button>
+    <button onclick="clearCache()">Clear Cache & Reload</button>
+    
+    <div id="result"></div>
+
+    <script src="auth-manager.js?v=2.0"></script>
+    <script>
+        function testVersion() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                console.log('Testing auth manager configuration...');
+                
+                const config = {
+                    hostname: window.location.hostname,
+                    useLocalProxy: window.authManager.useLocalProxy,
+                    apiBaseUrl: window.authManager.apiBaseUrl
+                };
+                
+                console.log('Auth Manager Config:', config);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <strong>✅ Auth Manager Loaded Successfully!</strong><br>
+                        <pre>${JSON.stringify(config, null, 2)}</pre>
+                        <strong>Expected for Live Server:</strong> useLocalProxy should be false<br>
+                        <strong>Check Console:</strong> Look for "Auth Manager Version: 2.0" message
+                    </div>
+                `;
+                
+                // Test what URL would be used
+                const testUrl = window.authManager.useLocalProxy 
+                    ? 'api-proxy.php?endpoint=admin/login'
+                    : 'live-auth-proxy.php';
+                    
+                console.log('Would use URL:', testUrl);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function clearCache() {
+            // Clear various caches
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
+            
+            // Add timestamp to force reload
+            window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now();
+        }
+        
+        // Auto-test on load
+        document.addEventListener('DOMContentLoaded', testVersion);
+    </script>
+</body>
+</html>
+</content>
+</invoke>
