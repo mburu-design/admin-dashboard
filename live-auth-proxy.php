@@ -44,7 +44,7 @@ try {
         }
 
         // Make request to the actual API
-        $apiUrl = 'https://core.myacccuratebook.com/admin/login';
+        $apiUrl = 'https://core.myaccuratebook.com/admin/login';
         $authToken = "zWWq5BWO+anUMgWtimvvCguXwU=wAMnzI6grv9WkCFsIdkBydGV4SDZQQHNz";
 
         $loginData = json_encode([

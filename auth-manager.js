@@ -10,7 +10,7 @@ class AuthManager {
         this.maxPersistentHours = 24;
         
         // API configuration
-        this.apiBaseUrl = 'https://core.myacccuratebook.com';
+        this.apiBaseUrl = 'https://core.myaccuratebook.com';
         
         // Check for saved override
         const savedMode = localStorage.getItem('FORCE_LIVE_MODE');
