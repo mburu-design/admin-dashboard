@@ -20,8 +20,9 @@ class AuthManager {
         
         // Auto-detect if running on localhost for development
         // Can be manually overridden by setting window.FORCE_LIVE_MODE = true
-        this.useLocalProxy = window.FORCE_LIVE_MODE ? false : this.isLocalhost();
-        
+        // this.useLocalProxy = window.FORCE_LIVE_MODE ? false : this.isLocalhost();
+        this.useLocalProxy =false ;
+
         // Log configuration for debugging
         console.log('AuthManager Configuration:', {
             hostname: window.location.hostname,
