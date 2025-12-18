@@ -518,6 +518,9 @@
         </div>
     </div>
 
+    <!-- Load secure authentication system -->
+    <script src="auth-manager.js"></script>
+    
     <script>
         let adminToken = null;
         let churnedData = null;
@@ -536,71 +539,13 @@
             document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
         }
 
-        async function testPHP() {
-            const loginStatus = document.getElementById('loginStatus');
-            loginStatus.innerHTML = '<div class="message info" style="margin-top: 15px;">Testing PHP connection...</div>';
-            
-            try {
-                const response = await fetch('churned_customers.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'test' })
-                });
-
-                const responseText = await response.text();
-                
-                try {
-                    const data = JSON.parse(responseText);
-                    if (data.success) {
-                        loginStatus.innerHTML = '<div class="message success" style="margin-top: 15px;">✓ PHP connection successful!</div>';
-                    } else {
-                        loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">PHP Error: ' + data.error + '</div>';
-                    }
-                } catch (e) {
-                    loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Invalid response: ' + responseText.substring(0, 200) + '</div>';
-                }
-            } catch (error) {
-                loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Connection error: ' + error.message + '</div>';
-            }
-        }
-
-        async function adminLogin() {
-            const loginBtn = document.getElementById('loginBtn');
-            const loginStatus = document.getElementById('loginStatus');
-            
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Logging in...';
-            
-            try {
-                const response = await fetch('churned_customers.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'login' })
-                });
-
-                const data = await response.json();
-                
-                if (response.ok && data.success && data.token) {
-                    adminToken = data.token;
-                    loginStatus.innerHTML = '<div class="message success" style="margin-top: 15px;">✓ Login successful!</div>';
-                    
-                    setTimeout(() => {
-                        document.getElementById('loginSection').style.display = 'none';
-                        document.getElementById('analysisSection').style.display = 'block';
-                        analyzeChurn();
-                    }, 500);
-                } else {
-                    loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Login failed: ' + (data.error || 'Unknown error') + '</div>';
-                }
-            } catch (error) {
-                loginStatus.innerHTML = '<div class="message error" style="margin-top: 15px;">Login error: ' + error.message + '</div>';
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Login as Admin';
-            }
+        // Get authentication token from AuthManager
+        function getAuthToken() {
+            return window.authManager ? window.authManager.getAuthToken() : null;
         }
 
         async function analyzeChurn() {
+            adminToken = getAuthToken();
             if (!adminToken) {
                 showMessage('Please login first', 'error');
                 return;
@@ -615,12 +560,10 @@
             const sortBy = document.getElementById('sortBy').value;
 
             try {
-                const response = await fetch('churned_customers.php', {
+                const response = await window.authManager.makeAuthenticatedRequest('churned_customers.php', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         action: 'analyze',
-                        token: adminToken,
                         churnPeriod: churnPeriod,
                         packageFilter: packageFilter,
                         sortBy: sortBy

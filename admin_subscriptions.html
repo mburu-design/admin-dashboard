@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Subscription Analyzer</title>
+    <link rel="stylesheet" href="admin-auth.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -242,16 +243,69 @@
     <div class="container">
         <h1>Admin Subscription Analyzer</h1>
         
-        <!-- Login Section -->
+        <!-- Secure Login Section -->
         <div id="loginSection" class="login-section">
-            <h2>Admin Login</h2>
-            <button onclick="testPHP()" style="margin-right: 10px; background-color: #28a745;">Test PHP</button>
-            <button onclick="adminLogin()" id="loginBtn">Login as Admin</button>
-            <div id="loginStatus"></div>
+            <div class="login-container">
+                <div class="login-box">
+                    <div class="login-header">
+                        <h2>Admin Login</h2>
+                        <p>Enter your credentials to access subscription analytics</p>
+                    </div>
+                    
+                    <form id="adminLoginForm" class="login-form">
+                        <div class="form-group">
+                            <label for="adminEmail">Email Address</label>
+                            <input 
+                                type="email" 
+                                id="adminEmail" 
+                                name="email" 
+                                required 
+                                autocomplete="email"
+                                placeholder="admin@example.com"
+                                class="form-input"
+                            >
+                            <div class="field-error" id="emailError"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="adminPassword">Password</label>
+                            <input 
+                                type="password" 
+                                id="adminPassword" 
+                                name="password" 
+                                required 
+                                autocomplete="current-password"
+                                placeholder="Enter your password"
+                                class="form-input"
+                            >
+                            <div class="field-error" id="passwordError"></div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" id="loginBtn" class="login-btn">
+                                <span class="btn-text">Login</span>
+                                <span class="btn-loading" style="display: none;">
+                                    <span class="spinner"></span>
+                                    Logging in...
+                                </span>
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div id="loginMessage" class="login-message"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Analysis Section -->
         <div id="analysisSection" class="analysis-section">
+            <div class="admin-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <h2 style="margin: 0; color: #333;">Subscription Analytics Dashboard</h2>
+                <div class="user-info" style="display: flex; align-items: center; gap: 15px;">
+                    <span id="currentUser" style="color: #666; font-size: 14px;">Admin User</span>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                </div>
+            </div>
             <div class="filter-section">
                 <h3>Subscription Analysis Filters</h3>
                 <form id="analysisForm">
@@ -362,6 +416,7 @@
         </div>
     </div>
 
+    <script src="auth-manager.js"></script>
     <script>
         let adminToken = null;
         let currentAnalysisData = null;
@@ -375,37 +430,188 @@
             document.getElementById('messageArea').innerHTML = '';
         }
 
-        async function testPHP() {
-            const loginStatus = document.getElementById('loginStatus');
-            loginStatus.innerHTML = '<div class="info">Testing PHP connection...</div>';
+        // Secure logout function
+        function logout() {
+            if (window.authManager) {
+                window.authManager.logout();
+            }
+        }
+
+        // Initialize secure authentication
+        document.addEventListener('DOMContentLoaded', function() {
+            initSecureAuth();
+        });
+
+        function initSecureAuth() {
+            // Initialize login form handler
+            const form = document.getElementById('adminLoginForm');
+            if (form) {
+                form.addEventListener('submit', handleSecureLogin);
+                
+                // Add validation event listeners
+                const emailInput = document.getElementById('adminEmail');
+                const passwordInput = document.getElementById('adminPassword');
+                
+                if (emailInput) {
+                    emailInput.addEventListener('blur', validateEmail);
+                    emailInput.addEventListener('input', clearEmailError);
+                }
+                
+                if (passwordInput) {
+                    passwordInput.addEventListener('input', clearPasswordError);
+                }
+            }
+
+            // Check if user is already authenticated
+            if (window.authManager && window.authManager.isAuthenticated()) {
+                adminToken = window.authManager.getAuthToken();
+                showAuthenticatedState();
+            }
+
+            // Update current user display
+            const currentUser = window.authManager ? window.authManager.getCurrentUser() : null;
+            if (currentUser) {
+                document.getElementById('currentUser').textContent = currentUser.email || 'Admin User';
+            }
+        }
+
+        function validateEmail() {
+            const emailInput = document.getElementById('adminEmail');
+            const email = emailInput.value.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            if (!email) {
+                showFieldError('emailError', 'Email is required');
+                emailInput.classList.add('error');
+                return false;
+            }
+            
+            if (!emailRegex.test(email)) {
+                showFieldError('emailError', 'Please enter a valid email address');
+                emailInput.classList.add('error');
+                return false;
+            }
+            
+            clearFieldError('emailError');
+            emailInput.classList.remove('error');
+            return true;
+        }
+
+        function validatePassword() {
+            const passwordInput = document.getElementById('adminPassword');
+            const password = passwordInput.value;
+            
+            if (!password) {
+                showFieldError('passwordError', 'Password is required');
+                passwordInput.classList.add('error');
+                return false;
+            }
+            
+            clearFieldError('passwordError');
+            passwordInput.classList.remove('error');
+            return true;
+        }
+
+        function clearEmailError() {
+            clearFieldError('emailError');
+            document.getElementById('adminEmail').classList.remove('error');
+        }
+
+        function clearPasswordError() {
+            clearFieldError('passwordError');
+            document.getElementById('adminPassword').classList.remove('error');
+        }
+
+        function showFieldError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            if (errorElement) {
+                errorElement.textContent = message;
+            }
+        }
+
+        function clearFieldError(elementId) {
+            const errorElement = document.getElementById(elementId);
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+        }
+
+        async function handleSecureLogin(event) {
+            event.preventDefault();
+            
+            const emailInput = document.getElementById('adminEmail');
+            const passwordInput = document.getElementById('adminPassword');
+            const loginBtn = document.getElementById('loginBtn');
+            const messageDiv = document.getElementById('loginMessage');
+            
+            // Clear previous messages
+            messageDiv.style.display = 'none';
+            
+            // Validate form
+            if (!validateEmail() || !validatePassword()) {
+                return;
+            }
+            
+            // Show loading state
+            setLoadingState(true);
             
             try {
-                const response = await fetch('analyze_subscriptions.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'test'
-                    })
-                });
-
-                const responseText = await response.text();
-                console.log('Raw response:', responseText);
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
                 
-                try {
-                    const data = JSON.parse(responseText);
-                    if (data.success) {
-                        loginStatus.innerHTML = '<div class="success">PHP is working correctly!</div>';
-                    } else {
-                        loginStatus.innerHTML = '<div class="error">PHP Error: ' + data.error + '</div>';
-                    }
-                } catch (e) {
-                    loginStatus.innerHTML = '<div class="error">PHP returned invalid JSON. Response: ' + responseText.substring(0, 500) + '</div>';
+                // Use AuthManager for login
+                const result = await window.authManager.login(email, password);
+                
+                if (result.success) {
+                    adminToken = window.authManager.getAuthToken();
+                    showMessage('Login successful! Loading dashboard...', 'success');
+                    
+                    setTimeout(() => {
+                        showAuthenticatedState();
+                    }, 1000);
+                } else {
+                    showLoginMessage(result.error || 'Login failed. Please try again.', 'error');
                 }
             } catch (error) {
-                loginStatus.innerHTML = '<div class="error">Connection error: ' + error.message + '</div>';
+                console.error('Login error:', error);
+                showLoginMessage('Connection error. Please check your internet connection and try again.', 'error');
+            } finally {
+                setLoadingState(false);
             }
+        }
+
+        function showAuthenticatedState() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('analysisSection').style.display = 'block';
+            
+            // Update user info
+            const currentUser = window.authManager.getCurrentUser();
+            if (currentUser) {
+                document.getElementById('currentUser').textContent = currentUser.email || 'Admin User';
+            }
+        }
+
+        function setLoadingState(loading) {
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = loginBtn.querySelector('.btn-text');
+            const btnLoading = loginBtn.querySelector('.btn-loading');
+            
+            if (loading) {
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'flex';
+                loginBtn.disabled = true;
+            } else {
+                btnText.style.display = 'block';
+                btnLoading.style.display = 'none';
+                loginBtn.disabled = false;
+            }
+        }
+
+        function showLoginMessage(message, type = 'info') {
+            const messageDiv = document.getElementById('loginMessage');
+            messageDiv.textContent = message;
+            messageDiv.className = `login-message ${type}`;
+            messageDiv.style.display = 'block';
         }
 
         document.getElementById('filterType').addEventListener('change', function() {
@@ -425,48 +631,26 @@
             }
         });
 
+        // Legacy function - now handled by secure authentication
         async function adminLogin() {
-            const loginBtn = document.getElementById('loginBtn');
-            const loginStatus = document.getElementById('loginStatus');
-            
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Logging in...';
-            
-            try {
-                const response = await fetch('analyze_subscriptions.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'login'
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (response.ok && data.success && data.token) {
-                    adminToken = data.token;
-                    loginStatus.innerHTML = '<div class="success">Login successful!</div>';
-                    
-                    document.getElementById('loginSection').style.display = 'none';
-                    document.getElementById('analysisSection').style.display = 'block';
-                } else {
-                    loginStatus.innerHTML = '<div class="error">Login failed: ' + (data.error || 'Unknown error') + '</div>';
-                }
-            } catch (error) {
-                loginStatus.innerHTML = '<div class="error">Login error: ' + error.message + '</div>';
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Login as Admin';
-            }
+            console.log('Legacy adminLogin() called - using secure authentication instead');
+            // The secure login form handles authentication
         }
 
         document.getElementById('analysisForm').addEventListener('submit', async function(event) {
             event.preventDefault();
             
-            if (!adminToken) {
+            // Check authentication using AuthManager
+            if (!window.authManager || !window.authManager.isAuthenticated()) {
                 showMessage('Please login first', 'error');
+                return;
+            }
+
+            // Get current token
+            adminToken = window.authManager.getAuthToken();
+            if (!adminToken) {
+                showMessage('Authentication token not found. Please login again.', 'error');
+                window.authManager.logout();
                 return;
             }
 
@@ -494,6 +678,12 @@
                 
                 if (response.ok) {
                     if (data.error) {
+                        // Check if error is due to invalid token
+                        if (data.error.includes('token') || data.error.includes('authentication')) {
+                            showMessage('Session expired. Please login again.', 'error');
+                            window.authManager.logout();
+                            return;
+                        }
                         showMessage(data.error, 'error');
                         return;
                     }
@@ -502,6 +692,12 @@
                     displayResults(data);
                     showMessage(`Analysis complete! Found ${data.totalSubscriptions} subscriptions.`, 'success');
                 } else {
+                    // Handle authentication errors
+                    if (response.status === 401 || response.status === 403) {
+                        showMessage('Session expired. Please login again.', 'error');
+                        window.authManager.logout();
+                        return;
+                    }
                     showMessage('Analysis failed: ' + (data.error || 'Unknown error'), 'error');
                 }
             } catch (error) {

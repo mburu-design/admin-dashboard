@@ -231,8 +231,8 @@
         
         <!-- Login Section -->
         <div id="loginSection" class="login-section">
-            <h2>Admin Login</h2>
-            <button onclick="adminLogin()" id="loginBtn">Login as Admin</button>
+            <h2>Admin Authentication</h2>
+            <p style="margin-bottom: 20px; opacity: 0.9;">Login to access payment analysis data</p>
             <div id="loginStatus"></div>
         </div>
 
@@ -399,6 +399,87 @@
         </div>
     </div>
 
+    <!-- Load secure authentication system -->
+    <script src="auth-manager.js"></script>
+    <script>
+        // Debug: Check if auth manager loaded
+        console.log('Auth manager loaded:', typeof window.authManager);
+        
+        // Simple authentication check without integration script
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, checking authentication...');
+            
+            // If user is already authenticated, show main content
+            if (window.authManager && window.authManager.isAuthenticated()) {
+                console.log('User is authenticated, showing main content');
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('analysisSection').style.display = 'block';
+            } else {
+                console.log('User not authenticated, showing login form');
+                // Show login form - we'll create a simple one
+                showSimpleLoginForm();
+            }
+        });
+        
+        function showSimpleLoginForm() {
+            const loginSection = document.getElementById('loginSection');
+            loginSection.innerHTML = `
+                <h2>Admin Authentication</h2>
+                <p style="margin-bottom: 20px;">Login to access payment analysis data</p>
+                <div style="max-width: 400px;">
+                    <div style="margin-bottom: 15px;">
+                        <label for="email" style="display: block; margin-bottom: 5px; font-weight: bold;">Email:</label>
+                        <input type="email" id="email" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter your email">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label for="password" style="display: block; margin-bottom: 5px; font-weight: bold;">Password:</label>
+                        <input type="password" id="password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter password">
+                    </div>
+                    <button onclick="handleLogin()" id="loginBtn" style="background: #007BFF; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                        Login
+                    </button>
+                    <div id="loginMessage" style="margin-top: 15px;"></div>
+                </div>
+            `;
+        }
+        
+        async function handleLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loginMessage = document.getElementById('loginMessage');
+            
+            if (!email || !password) {
+                loginMessage.innerHTML = '<div style="color: red;">Please enter both email and password</div>';
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            loginMessage.innerHTML = '<div style="color: blue;">Authenticating...</div>';
+            
+            try {
+                const result = await window.authManager.login(email, password);
+                
+                if (result.success) {
+                    loginMessage.innerHTML = '<div style="color: green;">Login successful!</div>';
+                    setTimeout(() => {
+                        document.getElementById('loginSection').style.display = 'none';
+                        document.getElementById('analysisSection').style.display = 'block';
+                    }, 1000);
+                } else {
+                    loginMessage.innerHTML = '<div style="color: red;">Login failed: ' + result.error + '</div>';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                loginMessage.innerHTML = '<div style="color: red;">Login error: ' + error.message + '</div>';
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        }
+    </script>
+    
     <script>
         let adminToken = null;
         let currentAnalysisData = null;
@@ -406,6 +487,11 @@
 
         function showMessage(message, type = 'info') {
             document.getElementById('messageArea').innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        // Get authentication token from AuthManager
+        function getAuthToken() {
+            return window.authManager ? window.authManager.getAuthToken() : null;
         }
 
         function switchTab(tabName) {
@@ -441,41 +527,10 @@
             }
         });
 
-        async function adminLogin() {
-            const loginBtn = document.getElementById('loginBtn');
-            const loginStatus = document.getElementById('loginStatus');
-            
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Logging in...';
-            
-            try {
-                const response = await fetch('first_payment_analyzer.php', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({action: 'login'})
-                });
-
-                const data = await response.json();
-                
-                if (data.success && data.token) {
-                    adminToken = data.token;
-                    loginStatus.innerHTML = '<div class="success">Login successful!</div>';
-                    document.getElementById('loginSection').style.display = 'none';
-                    document.getElementById('analysisSection').style.display = 'block';
-                } else {
-                    loginStatus.innerHTML = '<div class="error">Login failed: ' + (data.error || 'Unknown error') + '</div>';
-                }
-            } catch (error) {
-                loginStatus.innerHTML = '<div class="error">Login error: ' + error.message + '</div>';
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Login as Admin';
-            }
-        }
-
         document.getElementById('analysisForm').addEventListener('submit', async function(event) {
             event.preventDefault();
             
+            adminToken = getAuthToken();
             if (!adminToken) {
                 showMessage('Please login first', 'error');
                 return;
@@ -489,11 +544,10 @@
             document.getElementById('analyzeBtn').disabled = true;
 
             try {
-                const response = await fetch('first_payment_analyzer.php', {
+                // Use the authenticated request helper
+                const response = await window.authManager.makeAuthenticatedRequest('first_payment_analyzer.php', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        token: adminToken,
                         action: 'analyze',
                         ...filterData
                     })

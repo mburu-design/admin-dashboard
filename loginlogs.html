@@ -97,19 +97,26 @@
         <h1>Login Logs Visualization</h1>
         <p>Monitor and analyze user login activities</p>
     </div>
-    
-    <form id="loginLogForm">
-        <label for="startDateTime">Start Date and Time:</label>
-        <input type="datetime-local" id="startDateTime" name="startDateTime" required>
 
-        <label for="endDateTime">End Date and Time:</label>
-        <input type="datetime-local" id="endDateTime" name="endDateTime" required>
+    <!-- Login Section -->
+    <div id="loginSection" class="login-section" style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+        <h2>Admin Authentication</h2>
+        <p style="margin-bottom: 20px; opacity: 0.9;">Login to access login logs data</p>
+        <div id="loginStatus"></div>
+    </div>
 
-        <label for="token">Admin Token:</label>
-        <input type="text" id="token" name="token" required>
+    <!-- Analysis Section -->
+    <div id="analysisSection" class="analysis-section" style="display: none;">
+        <form id="loginLogForm">
+            <label for="startDateTime">Start Date and Time:</label>
+            <input type="datetime-local" id="startDateTime" name="startDateTime" required>
 
-        <button type="submit">Fetch Login Logs</button>
-    </form>
+            <label for="endDateTime">End Date and Time:</label>
+            <input type="datetime-local" id="endDateTime" name="endDateTime" required>
+
+            <button type="submit">Fetch Login Logs</button>
+        </form>
+    </div>
 
     <!-- Analytics Section -->
     <div class="analytics-section" id="analyticsSection" style="display: none;">
@@ -158,13 +165,28 @@
         </tbody>
     </table>
 
+    <!-- Load secure authentication system -->
+    <script src="auth-manager.js"></script>
+    
     <script>
+        let adminToken = null;
+
+        // Get authentication token from AuthManager
+        function getAuthToken() {
+            return window.authManager ? window.authManager.getAuthToken() : null;
+        }
+
         document.getElementById('loginLogForm').addEventListener('submit', function(event) {
             event.preventDefault();
 
+            adminToken = getAuthToken();
+            if (!adminToken) {
+                alert('Please login first');
+                return;
+            }
+
             const startDateTime = document.getElementById('startDateTime').value;
             const endDateTime = document.getElementById('endDateTime').value;
-            const token = document.getElementById('token').value;
 
             const formatDateTime = (dateTime) => {
                 const date = new Date(dateTime);
@@ -181,21 +203,25 @@
             const formattedStartDate = formatDateTime(startDateTime);
             const formattedEndDate = formatDateTime(endDateTime);
 
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', 'fetch_login_logs.php', true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    document.getElementById('logTableBody').innerHTML = response.logRows;
-                    document.getElementById('uniqueUserCount').textContent = response.uniqueUserCount;
-                    document.getElementById('successfulLogins').textContent = response.successfulLogins;
-                    document.getElementById('failedLogins').textContent = response.failedLogins;
-                    document.getElementById('emailTableBody').innerHTML = response.emailRows;
-                    document.getElementById('analyticsSection').style.display = 'block';
-                }
-            };
-            xhr.send(`startDate=${formattedStartDate}&endDate=${formattedEndDate}&token=${token}`);
+            // Update to use modern fetch with authentication
+            const requestData = `startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
+            
+            window.authManager.makeAuthenticatedRequest('fetch_login_logs.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: requestData
+            }).then(response => response.json())
+            .then(data => {
+                document.getElementById('logTableBody').innerHTML = data.logRows;
+                document.getElementById('uniqueUserCount').textContent = data.uniqueUserCount;
+                document.getElementById('successfulLogins').textContent = data.successfulLogins;
+                document.getElementById('failedLogins').textContent = data.failedLogins;
+                document.getElementById('emailTableBody').innerHTML = data.emailRows;
+                document.getElementById('analyticsSection').style.display = 'block';
+            }).catch(error => {
+                console.error('Error fetching logs:', error);
+                alert('Error fetching login logs: ' + error.message);
+            });
         });
     </script>
 </body>

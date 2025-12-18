@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - MyAccurate Books</title>
+    <link rel="stylesheet" href="admin-auth.css">
     <style>
         * {
             margin: 0;
@@ -508,13 +509,55 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-    <!-- Login Page -->
+    <!-- Secure Login Page -->
     <div id="loginPage" class="login-container">
         <div class="login-box">
-            <h1>Admin Dashboard</h1>
-            <p>MyAccurate Books Administration</p>
-            <button onclick="adminLogin()" id="loginBtn">Login as Administrator</button>
-            <div id="loginMessage" style="margin-top: 15px;"></div>
+            <div class="login-header">
+                <h1>Admin Dashboard</h1>
+                <p>MyAccurate Books Administration</p>
+            </div>
+            
+            <form id="adminLoginForm" class="login-form">
+                <div class="form-group">
+                    <label for="adminEmail">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="adminEmail" 
+                        name="email" 
+                        required 
+                        autocomplete="email"
+                        placeholder="admin@example.com"
+                        class="form-input"
+                    >
+                    <div class="field-error" id="emailError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="adminPassword">Password</label>
+                    <input 
+                        type="password" 
+                        id="adminPassword" 
+                        name="password" 
+                        required 
+                        autocomplete="current-password"
+                        placeholder="Enter your password"
+                        class="form-input"
+                    >
+                    <div class="field-error" id="passwordError"></div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" id="loginBtn" class="login-btn">
+                        <span class="btn-text">Login as Administrator</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="spinner"></span>
+                            Logging in...
+                        </span>
+                    </button>
+                </div>
+            </form>
+            
+            <div id="loginMessage" class="login-message"></div>
         </div>
     </div>
 
@@ -523,8 +566,8 @@
         <div class="dashboard-header">
             <h1>MyAccurate Books Dashboard</h1>
             <div class="header-actions">
-                <span class="user-info">Admin User</span>
-                <button class="logout-btn" onclick="logout()">Logout</button>
+                <span class="user-info" id="currentUser">Admin User</span>
+                <button class="logout-btn" onclick="secureLogout()">Logout</button>
             </div>
         </div>
         
@@ -1083,11 +1126,17 @@
         </div>
     </div>
 
+    <script src="auth-manager.js"></script>
     <script>
         const BASE_URL = 'https://core.myaccuratebook.com';
         const AUTH_TOKEN = 'zWWq5BWO+anUMgWtimvvCguXwU=wAMnzI6grv9WkCFsIdkBydGV4SDZQQHNz';
         let adminToken = null;
         let currentBusinesses = [];
+
+        // Initialize secure authentication on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initSecureAuth();
+        });
 
         function showMessage(elementId, message, type = 'info') {
             const element = document.getElementById(elementId);
@@ -1098,45 +1147,222 @@
             document.getElementById(elementId).innerHTML = '';
         }
 
-        // Login using PHP backend
-        async function adminLogin() {
-            const loginBtn = document.getElementById('loginBtn');
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Logging in...';
-            
-            try {
-                const response = await fetch('analyze_subscriptions.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'login'
-                    })
-                });
-
-                const data = await response.json();
+        // Secure authentication initialization
+        function initSecureAuth() {
+            // Initialize login form handler
+            const form = document.getElementById('adminLoginForm');
+            if (form) {
+                form.addEventListener('submit', handleSecureLogin);
                 
-                if (data.success && data.token) {
-                    adminToken = data.token;
-                    document.getElementById('loginPage').style.display = 'none';
-                    document.getElementById('dashboardPage').style.display = 'block';
-                    loadOverview();
-                } else {
-                    showMessage('loginMessage', 'Login failed: ' + (data.error || 'Unknown error'), 'error');
+                // Add validation event listeners
+                const emailInput = document.getElementById('adminEmail');
+                const passwordInput = document.getElementById('adminPassword');
+                
+                if (emailInput) {
+                    emailInput.addEventListener('blur', validateEmail);
+                    emailInput.addEventListener('input', clearEmailError);
                 }
-            } catch (error) {
-                showMessage('loginMessage', 'Login error: ' + error.message, 'error');
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Login as Administrator';
+                
+                if (passwordInput) {
+                    passwordInput.addEventListener('input', clearPasswordError);
+                }
+            }
+
+            // Check if user is already authenticated
+            if (window.authManager && window.authManager.isAuthenticated()) {
+                adminToken = window.authManager.getAuthToken();
+                showAuthenticatedState();
             }
         }
 
+        async function handleSecureLogin(event) {
+            event.preventDefault();
+            
+            const emailInput = document.getElementById('adminEmail');
+            const passwordInput = document.getElementById('adminPassword');
+            const messageDiv = document.getElementById('loginMessage');
+            
+            // Clear previous messages
+            messageDiv.style.display = 'none';
+            
+            // Validate form
+            if (!validateEmail() || !validatePassword()) {
+                return;
+            }
+            
+            // Show loading state
+            setLoadingState(true);
+            
+            try {
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+                
+                // Use AuthManager for login
+                const result = await window.authManager.login(email, password);
+                
+                if (result.success) {
+                    adminToken = window.authManager.getAuthToken();
+                    showLoginMessage('Login successful! Loading dashboard...', 'success');
+                    
+                    setTimeout(() => {
+                        showAuthenticatedState();
+                        loadOverview();
+                    }, 1000);
+                } else {
+                    showLoginMessage(result.error || 'Login failed. Please try again.', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showLoginMessage('Connection error. Please check your internet connection and try again.', 'error');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        function showAuthenticatedState() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('dashboardPage').style.display = 'block';
+            
+            // Update user info
+            const currentUser = window.authManager.getCurrentUser();
+            if (currentUser) {
+                document.getElementById('currentUser').textContent = currentUser.email || 'Admin User';
+            }
+        }
+
+        // Legacy function - now handled by secure authentication
+        async function adminLogin() {
+            console.log('Legacy adminLogin() called - using secure authentication instead');
+        }
+
         function logout() {
-            adminToken = null;
-            document.getElementById('dashboardPage').style.display = 'none';
-            document.getElementById('loginPage').style.display = 'flex';
+            console.log('Legacy logout() called - using secure logout instead');
+            secureLogout();
+        }
+
+        function secureLogout() {
+            if (window.authManager) {
+                window.authManager.logout();
+            } else {
+                // Fallback logout
+                adminToken = null;
+                document.getElementById('dashboardPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'flex';
+            }
+        }
+
+        // Form validation functions
+        function validateEmail() {
+            const emailInput = document.getElementById('adminEmail');
+            const email = emailInput.value.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            if (!email) {
+                showFieldError('emailError', 'Email is required');
+                emailInput.classList.add('error');
+                return false;
+            }
+            
+            if (!emailRegex.test(email)) {
+                showFieldError('emailError', 'Please enter a valid email address');
+                emailInput.classList.add('error');
+                return false;
+            }
+            
+            clearFieldError('emailError');
+            emailInput.classList.remove('error');
+            return true;
+        }
+
+        function validatePassword() {
+            const passwordInput = document.getElementById('adminPassword');
+            const password = passwordInput.value;
+            
+            if (!password) {
+                showFieldError('passwordError', 'Password is required');
+                passwordInput.classList.add('error');
+                return false;
+            }
+            
+            clearFieldError('passwordError');
+            passwordInput.classList.remove('error');
+            return true;
+        }
+
+        function clearEmailError() {
+            clearFieldError('emailError');
+            document.getElementById('adminEmail').classList.remove('error');
+        }
+
+        function clearPasswordError() {
+            clearFieldError('passwordError');
+            document.getElementById('adminPassword').classList.remove('error');
+        }
+
+        function showFieldError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            if (errorElement) {
+                errorElement.textContent = message;
+            }
+        }
+
+        function clearFieldError(elementId) {
+            const errorElement = document.getElementById(elementId);
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+        }
+
+        function setLoadingState(loading) {
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = loginBtn.querySelector('.btn-text');
+            const btnLoading = loginBtn.querySelector('.btn-loading');
+            
+            if (loading) {
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'flex';
+                loginBtn.disabled = true;
+            } else {
+                btnText.style.display = 'block';
+                btnLoading.style.display = 'none';
+                loginBtn.disabled = false;
+            }
+        }
+
+        function showLoginMessage(message, type = 'info') {
+            const messageDiv = document.getElementById('loginMessage');
+            messageDiv.textContent = message;
+            messageDiv.className = `login-message ${type}`;
+            messageDiv.style.display = 'block';
+        }
+
+        // Helper function to check authentication and get token
+        function checkAuthAndGetToken() {
+            if (!window.authManager || !window.authManager.isAuthenticated()) {
+                return null;
+            }
+            
+            const token = window.authManager.getAuthToken();
+            if (!token) {
+                secureLogout();
+                return null;
+            }
+            
+            adminToken = token;
+            return token;
+        }
+
+        // Helper function to handle authentication errors in API responses
+        function handleAuthError(response, messageElementId = null) {
+            if (response.status === 401 || response.status === 403) {
+                const message = 'Session expired. Please login again.';
+                if (messageElementId) {
+                    showMessage(messageElementId, message, 'error');
+                }
+                secureLogout();
+                return true;
+            }
+            return false;
         }
 
         function showSection(sectionId) {
@@ -1147,6 +1373,12 @@
         }
 
         async function loadOverview() {
+            // Check authentication and get token
+            if (!checkAuthAndGetToken()) {
+                console.log('Authentication check failed, redirecting to login');
+                return;
+            }
+
             try {
                 const [businessRes, paymentRes] = await Promise.all([
                     fetch(`${BASE_URL}/admin/business-stats?token=${adminToken}`, {
@@ -1157,6 +1389,11 @@
                     })
                 ]);
 
+                // Check for authentication errors
+                if (handleAuthError(businessRes) || handleAuthError(paymentRes)) {
+                    return;
+                }
+
                 const businessData = await businessRes.json();
                 const paymentData = await paymentRes.json();
 
@@ -1166,10 +1403,17 @@
                 document.getElementById('overviewTotalPayments').textContent = paymentData.data?.summary?.totalTransactions || 0;
             } catch (error) {
                 console.error('Overview load error:', error);
+                // Don't logout on network errors, just log the error
             }
         }
 
         async function loadBusinesses() {
+            // Check authentication and get token
+            if (!checkAuthAndGetToken()) {
+                showMessage('businessMessage', 'Please login first', 'error');
+                return;
+            }
+
             clearMessage('businessMessage');
             showMessage('businessMessage', 'Loading businesses... This may take a moment.', 'info');
             
@@ -1183,6 +1427,12 @@
                 });
 
                 clearTimeout(timeoutId);
+
+                // Check for authentication errors
+                if (handleAuthError(response, 'businessMessage')) {
+                    return;
+                }
+
                 const data = await response.json();
                 
                 if (!response.ok) {
@@ -1341,8 +1591,9 @@
             downloadCSV(csv, `subscriptions_${new Date().toISOString().split('T')[0]}.csv`);
         }
         async function exportPayments() {
-    if (!adminToken) {
-        alert('Not authenticated. Please login again.');
+    // Check authentication and get token
+    if (!checkAuthAndGetToken()) {
+        alert('Please login first');
         return;
     }
     
@@ -1444,6 +1695,12 @@
 
         // Load subscriptions using PHP backend
         async function loadSubscriptions() {
+            // Check authentication and get token
+            if (!checkAuthAndGetToken()) {
+                showMessage('subscriptionMessage', 'Please login first', 'error');
+                return;
+            }
+
             clearMessage('subscriptionMessage');
             showMessage('subscriptionMessage', 'Analyzing subscriptions...', 'info');
             
@@ -1461,9 +1718,20 @@
                     })
                 });
 
+                // Check for authentication errors
+                if (handleAuthError(response, 'subscriptionMessage')) {
+                    return;
+                }
+
                 const data = await response.json();
                 
                 if (data.error) {
+                    // Check if error is due to invalid token
+                    if (data.error.includes('token') || data.error.includes('authentication')) {
+                        showMessage('subscriptionMessage', 'Session expired. Please login again.', 'error');
+                        secureLogout();
+                        return;
+                    }
                     throw new Error(data.error);
                 }
 
