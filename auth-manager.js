@@ -52,7 +52,7 @@ class AuthManager {
             
             const apiUrl = this.useLocalProxy 
                 ? 'api-proxy.php?endpoint=admin/login'  // Use local PHP proxy for development
-                : `${this.apiBaseUrl}/admin/login`;     // Direct API call for production
+                : 'live-auth-proxy.php';                // Use live server proxy for production
                 
             console.log('Using API URL:', apiUrl);
             
@@ -62,6 +62,7 @@ class AuthManager {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    action: 'login',
                     email: email.trim(),
                     password: password
                 })
@@ -79,7 +80,7 @@ class AuthManager {
             const data = await response.json();
             console.log('API Response data:', data);
 
-            if (response.ok && data.token) {
+            if ((response.ok && data.token) || (data.success && data.token)) {
                 // Store authentication data
                 const sessionData = {
                     token: data.token,
@@ -103,13 +104,11 @@ class AuthManager {
             let errorMessage = error.message;
             
             if (error.message.includes('Failed to fetch')) {
-                if (this.useLocalProxy) {
-                    errorMessage = 'CORS Error: Cannot access the API from localhost. Solutions: 1. Deploy your files to the same domain as the API 2. Use a local server with CORS proxy 3. Ask your backend team to add CORS headers 4. Use a browser extension to disable CORS (for development only) Technical details: ' + error.message;
-                } else {
-                    errorMessage = 'Unable to connect to the authentication server. Please check your internet connection and try again.';
-                }
+                errorMessage = 'Unable to connect to the authentication server. Please check your internet connection and try again.';
             } else if (error.message.includes('NetworkError')) {
                 errorMessage = 'Network error occurred. Please check your connection and try again.';
+            } else if (error.message.includes('CORS')) {
+                errorMessage = 'CORS Error: Cross-origin request blocked. Please ensure the authentication proxy is properly configured.';
             }
             
             this.logSecurityEvent('login_failure', { email: email, error: error.message });
