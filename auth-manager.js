@@ -12,8 +12,22 @@ class AuthManager {
         // API configuration
         this.apiBaseUrl = 'https://core.myacccuratebook.com';
         
+        // Check for saved override
+        const savedMode = localStorage.getItem('FORCE_LIVE_MODE');
+        if (savedMode !== null) {
+            window.FORCE_LIVE_MODE = savedMode === 'true';
+        }
+        
         // Auto-detect if running on localhost for development
-        this.useLocalProxy = this.isLocalhost();
+        // Can be manually overridden by setting window.FORCE_LIVE_MODE = true
+        this.useLocalProxy = window.FORCE_LIVE_MODE ? false : this.isLocalhost();
+        
+        // Log configuration for debugging
+        console.log('AuthManager Configuration:', {
+            hostname: window.location.hostname,
+            useLocalProxy: this.useLocalProxy,
+            forceLiveMode: window.FORCE_LIVE_MODE || false
+        });
     }
 
     /**
@@ -88,7 +102,11 @@ class AuthManager {
             let errorMessage = error.message;
             
             if (error.message.includes('Failed to fetch')) {
-                errorMessage = 'Unable to connect to the authentication server. Please check your internet connection and try again.';
+                if (this.useLocalProxy) {
+                    errorMessage = 'CORS Error: Cannot access the API from localhost. Solutions: 1. Deploy your files to the same domain as the API 2. Use a local server with CORS proxy 3. Ask your backend team to add CORS headers 4. Use a browser extension to disable CORS (for development only) Technical details: ' + error.message;
+                } else {
+                    errorMessage = 'Unable to connect to the authentication server. Please check your internet connection and try again.';
+                }
             } else if (error.message.includes('NetworkError')) {
                 errorMessage = 'Network error occurred. Please check your connection and try again.';
             }
@@ -283,11 +301,23 @@ class AuthManager {
      */
     isLocalhost() {
         const hostname = window.location.hostname;
-        return hostname === 'localhost' || 
-               hostname === '127.0.0.1' || 
-               hostname.startsWith('192.168.') ||
-               hostname.startsWith('10.') ||
-               hostname.includes('local');
+        const protocol = window.location.protocol;
+        
+        // Log for debugging
+        console.log('Environment Detection:', { hostname, protocol, fullUrl: window.location.href });
+        
+        // Check for explicit localhost indicators
+        const isLocalDev = hostname === 'localhost' || 
+                          hostname === '127.0.0.1' || 
+                          hostname.startsWith('192.168.') ||
+                          hostname.startsWith('10.') ||
+                          protocol === 'file:' ||
+                          (hostname.endsWith('.local') && !hostname.includes('.')) || // Only .local TLD, not subdomains
+                          hostname === '' || // File protocol
+                          /^localhost:\d+$/.test(hostname); // localhost with port
+        
+        console.log('Is localhost detected:', isLocalDev);
+        return isLocalDev;
     }
 
     /**
